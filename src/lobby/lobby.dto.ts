@@ -1,5 +1,4 @@
-import { IsString, IsUUID, IsNumber, IsArray, Min, IsEnum } from "class-validator";
-
+import { IsString, IsUUID, IsNumber, IsArray, Min, IsEnum, IsOptional } from "class-validator";
 
 export enum ActivityType {
     PVP = "PVP",
@@ -9,10 +8,10 @@ export enum ActivityType {
     WAR = "WAR",
     EVENT = "EVENT",
 }
-
 export class LobbyDto {
     @IsUUID()
-    lobbyId: string;
+    @IsOptional()
+    id: string;
 
     @IsString()
     title: string;
@@ -28,7 +27,7 @@ export class LobbyDto {
     maxPlayers: number;
 
     @IsNumber()
-    @Min(2) 
+    @Min(2)
     minPlayers: number;
 
     @IsEnum(ActivityType)
@@ -38,9 +37,20 @@ export class LobbyDto {
     ownerId: string;
 
     @IsArray()
-    @IsString({ each: true }) 
+    @IsString({ each: true })
     playerIds: string[];
 
     @IsString()
     discordChannelLink: string;
+}
+
+export interface FindAllParameters {
+    id?: string;
+    title?: string;
+    minLevel?: number;
+    maxLevel?: number;
+    maxPlayers?: number;
+    minPlayers?: number;
+    activityType?: string;
+    ownerId?: string;
 }

@@ -1,5 +1,6 @@
 import { Body, HttpException, HttpStatus, Injectable, NotFoundException, Put } from '@nestjs/common';
 import { FindAllParameters, LobbyDto } from './lobby.dto';
+import {v4 as uuid} from 'uuid';
 
 @Injectable()
 export class LobbyService {
@@ -7,12 +8,13 @@ export class LobbyService {
     private lobbys: LobbyDto[] = [];
 
     create(lobby: LobbyDto) {
+        lobby.id = uuid()
+        console.log(lobby.id)
         this.lobbys.push(lobby);
-        console.log(this.lobbys)
     }
 
     findById(id: string): LobbyDto {
-        const foundLobby = this.lobbys.find(lobby => lobby.lobbyId === id)
+        const foundLobby = this.lobbys.find(lobby => lobby.id === id)
         if (foundLobby) {
             return foundLobby
         }
@@ -20,24 +22,24 @@ export class LobbyService {
     }
 
     update(lobby: LobbyDto) {
-        let lobbyIndex = this.lobbys.findIndex(t => t.lobbyId === lobby.lobbyId);
+        let lobbyIndex = this.lobbys.findIndex(t => t.id === lobby.id);
         if (lobbyIndex >= 0) {
             this.lobbys[lobbyIndex] = lobby
             return lobby
         }
-        throw new HttpException(`Lobby with id ${lobby.lobbyId} not found`, HttpStatus.NOT_FOUND);
+        throw new HttpException(`Lobby with id ${lobby.id} not found`, HttpStatus.NOT_FOUND);
     }
 
     delete(id: string): LobbyDto {
-        const lobbyIndex = this.lobbys.findIndex(t => t.lobbyId === id)
+        const lobbyIndex = this.lobbys.findIndex(t => t.id === id)
         this.lobbys.splice(lobbyIndex, 1)
         return
     }
 
     findAll(params: FindAllParameters): LobbyDto[] {
         let filteredLobbys = this.lobbys;
-        if (params.lobbyId) {
-            filteredLobbys = filteredLobbys.filter(lobby => lobby.lobbyId === params.lobbyId);
+        if (params.id) {
+            filteredLobbys = filteredLobbys.filter(lobby => lobby.id === params.id);
         }
         if (params.title) {
             filteredLobbys = filteredLobbys.filter(lobby =>
