@@ -1,17 +1,10 @@
-import { IsString, IsUUID, IsNumber, IsArray, Min, IsEnum, IsOptional } from "class-validator";
+import { IsString, IsUUID, IsNumber, Min, IsEnum, IsOptional } from "class-validator";
+import { ActivityType } from "../db/entities/lobby.entity"; // Certifique-se que o caminho está correto
 
-export enum ActivityType {
-    PVP = "PVP",
-    HUNT = "HUNT",
-    QUEST = "QUEST",
-    BOSS = "BOSS",
-    WAR = "WAR",
-    EVENT = "EVENT",
-}
 export class LobbyDto {
     @IsUUID()
     @IsOptional()
-    id: string;
+    id?: string;
 
     @IsString()
     title: string;
@@ -31,14 +24,10 @@ export class LobbyDto {
     minPlayers: number;
 
     @IsEnum(ActivityType)
-    activityType: string;
+    activityType: ActivityType;
 
-    @IsString()
-    ownerId: string;
-
-    @IsArray()
-    @IsString({ each: true })
-    playerIds: string[];
+    @IsUUID()
+    ownerId: string; // 🔹 O ID do dono da lobby
 
     @IsString()
     discordChannelLink: string;

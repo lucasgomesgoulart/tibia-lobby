@@ -1,20 +1,28 @@
 import {hashSync as bcryptHashSync} from 'bcrypt'
 import {v4 as uuid} from 'uuid'
 import { Injectable } from '@nestjs/common';
-import { UserDto } from './user.dto';
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { User } from "../db/entities/user.entity";
 
 @Injectable()
 export class UsersService {
-    private users: UserDto[] = [];
+    constructor(
+        @InjectRepository(User)
+        private readonly userRepository: Repository<User>
+    ) {}
 
-    createUser(newUser: UserDto){
-        newUser.id = uuid()
-        newUser.password = bcryptHashSync(newUser.password, 10)
-        this.users.push(newUser)
+    async createUser(newUser: Partial<User>): Promise<User> {
+        const user = this.userRepository.create({
+            ...newUser,
+            id: uuid(),
+            password: bcryptHashSync(newUser.password, 10),
+        });
+
+        return this.userRepository.save(user);
     }
 
-    findUserByUsername(username: string): UserDto | null{
-        return this.users.find(u=> u.username === username)
+    async findUserByUsername(username: string): Promise<User | null> {
+        return this.userRepository.findOne({ where: { username } });
     }
 }
-
