@@ -1,32 +1,18 @@
-import {
-    Entity,
-    PrimaryGeneratedColumn,
-    Column,
-    ManyToOne,
-    CreateDateColumn,
-    UpdateDateColumn,
-    DeleteDateColumn,
-} from "typeorm";
-import { User } from "./User.entity";
-import { Lobby } from "./Lobby.entity";
+import { Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn } from "typeorm";
+import { User } from "./user.entity";
+import { Lobby } from "./lobby.entity";
 
 @Entity("lobby_players")
 export class LobbyPlayer {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @ManyToOne(() => User, (user) => user.lobbiesJoined)
+    @ManyToOne(() => User, (user) => user.lobbiesJoined, { onDelete: "CASCADE" })
     user: User;
 
-    @ManyToOne(() => Lobby, (lobby) => lobby.players)
+    @ManyToOne(() => Lobby, (lobby) => lobby.players, { onDelete: "CASCADE" }) // 🔹 Confirme que a relação está correta
     lobby: Lobby;
 
     @CreateDateColumn()
     created_at: Date;
-
-    @UpdateDateColumn()
-    updated_at: Date;
-
-    @DeleteDateColumn()
-    deleted_at: Date;
 }
