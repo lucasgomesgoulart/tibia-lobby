@@ -7,7 +7,14 @@ export class UsersController {
     constructor(private UsersService: UsersService) {}
 
     @Post()
-    create(@Body() user: UserDto){
-       this.UsersService.createUser(user) 
+    async create(@Body() user: UserDto){
+        try{
+            const newUser = this.UsersService.createUser(user) 
+            console.log(newUser)
+            return {message: "Usuario criado com sucesso"}            
+        }catch(err){
+            return {message: "Ocorreu um erro ao tentar criar o usuario", error: err}
+        }
     }
+
 }

@@ -48,6 +48,9 @@ export class Lobby {
     @Column()
     discordChannelLink: string;
 
+    @Column({default: false})
+    isDeleted: boolean;
+
     @CreateDateColumn()
     created_at: Date;
 

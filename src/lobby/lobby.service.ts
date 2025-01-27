@@ -20,33 +20,29 @@ export class LobbyService {
         private readonly userRepository: Repository<User>
     ) {}
 
-    async createLobby(dto: LobbyDto): Promise<Lobby> {
-        if (Array.isArray(dto)) {
-            throw new Error("Erro: O payload deve ser um único objeto, não um array.");
-        }
+    async createLobby(lobbyToCreate: LobbyDto): Promise<Lobby> {
+    
+        // const validaSeTemLobbyCriada = await this.lobbyPlayerRepository.find(lobbyToCreate.ownerId);
 
-        // 🔹 Verifica se o usuário existe
-        const user = await this.userRepository.findOne({ where: { id: dto.ownerId } });
+        const user = await this.userRepository.findOne({ where: { id: lobbyToCreate.ownerId } });
         if (!user) {
             throw new Error("Usuário não encontrado.");
         }
 
-        // 🔹 Criando a lobby sem espalhar `dto`
         const newLobby = this.lobbyRepository.create({
             id: uuid(),
-            title: dto.title,
-            minLevel: dto.minLevel,
-            maxLevel: dto.maxLevel,
-            maxPlayers: dto.maxPlayers,
-            minPlayers: dto.minPlayers,
-            activityType: dto.activityType,
-            discordChannelLink: dto.discordChannelLink,
-            owner: user, // 🔹 O TypeORM precisa de um objeto `User`, não de um `string`
+            title: lobbyToCreate.title,
+            minLevel: lobbyToCreate.minLevel,
+            maxLevel: lobbyToCreate.maxLevel,
+            maxPlayers: lobbyToCreate.maxPlayers,
+            minPlayers: lobbyToCreate.minPlayers,
+            activityType: lobbyToCreate.activityType,
+            discordChannelLink: lobbyToCreate.discordChannelLink,
+            owner: user, 
         });
 
         const savedLobby = await this.lobbyRepository.save(newLobby);
 
-        // 🔹 Adiciona o dono da lobby como primeiro jogador na `lobby_players`
         const lobbyPlayer = this.lobbyPlayerRepository.create({
             id: uuid(),
             user: user,
