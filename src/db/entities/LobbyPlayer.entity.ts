@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, Column } from "typeorm";
 import { User } from "./user.entity";
 import { Lobby } from "./lobby.entity";
 
@@ -7,12 +7,18 @@ export class LobbyPlayer {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @ManyToOne(() => User, (user) => user.lobbiesJoined, { onDelete: "CASCADE" })
+    @ManyToOne(() => User)
     user: User;
 
-    @ManyToOne(() => Lobby, (lobby) => lobby.players, { onDelete: "CASCADE" }) // 🔹 Confirme que a relação está correta
+    @ManyToOne(() => Lobby)
     lobby: Lobby;
+
+    @Column({ default: true })
+    isActive: boolean;
 
     @CreateDateColumn()
     created_at: Date;
+
+    @UpdateDateColumn()
+    updated_at: Date;
 }

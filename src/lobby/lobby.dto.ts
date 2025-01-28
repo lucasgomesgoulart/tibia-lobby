@@ -26,9 +26,6 @@ export class LobbyDto {
     @IsEnum(ActivityType)
     activityType: ActivityType;
 
-    @IsUUID()
-    ownerId: string; // 🔹 O ID do dono da lobby
-
     @IsString()
     discordChannelLink: string;
 }

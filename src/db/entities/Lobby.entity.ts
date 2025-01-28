@@ -40,7 +40,7 @@ export class Lobby {
     activityType: string;
 
     @ManyToOne(() => User, (user) => user.lobbiesOwned)
-    owner: User;
+    owner?: User;
 
     @OneToMany(() => LobbyPlayer, (lobbyPlayer) => lobbyPlayer.lobby, { cascade: true }) // 🔹 Corrija a relação aqui
     players: LobbyPlayer[];
