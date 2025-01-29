@@ -7,9 +7,10 @@ import { AuthModule } from './auth/auth.module';
 import {ConfigModule} from '@nestjs/config'
 import { DbModule } from './db/db.module';
 import { LobbyPlayersModule } from './lobby-players/lobby-players.module';
+import { CharactersModule } from './characters/characters.module';
 
 @Module({
-  imports: [LobbyModule, UsersModule, AuthModule, ConfigModule.forRoot({isGlobal: true}), DbModule, LobbyPlayersModule],
+  imports: [LobbyModule, UsersModule, AuthModule, ConfigModule.forRoot({isGlobal: true}), DbModule, LobbyPlayersModule, CharactersModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -47,7 +47,7 @@ export class LobbyController {
             const idUserLogado = req.userId
             console.log(idUserLogado)
             await this.LobbyService.deleteLobby(lobbyId, idUserLogado);
-            return { message: "Lobby marcada como deletada com sucesso." };
+            return { message: "Lobby deletada como deletada com sucesso." };
         } catch (err) {
             throw new HttpException(
                 { message: err.message || "Erro ao deletar lobby", error: err.stack },

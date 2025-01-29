@@ -3,6 +3,7 @@ import {
 } from "typeorm";
 import { Lobby } from "./Lobby.entity";
 import { LobbyPlayer } from "./LobbyPlayer.entity";
+import { Character } from "./Characters.entity";
 
 @Entity("users")
 export class User {
@@ -66,7 +67,12 @@ export class User {
     @OneToMany(() => Lobby, (lobby) => lobby.owner)
     lobbiesOwned: Lobby[];
 
+    @OneToMany(()=> Character,(character)=> character.user)
+    characters: Character[];
+
     // 🔹 Relação: Usuário pode estar em apenas uma lobby por vez
     @OneToMany(() => LobbyPlayer, (lobbyPlayer) => lobbyPlayer.user)
     lobbiesJoined: LobbyPlayer[];
 }
+
+
