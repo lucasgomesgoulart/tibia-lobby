@@ -21,7 +21,8 @@
     "typeorm": "ts-node ./node_modules/typeorm/cli",
     "migration:create": "npm run typeorm -- migration:create ./src/db/migrations/$npm_config_name",
     "migration:run": "npm run typeorm -- migration:run -d ./src/db/typeorm.migration.config.ts",
-    "migration:revert": "npm run typeorm -- migration:revert -- -d ./src/db/typeorm.migration.config.ts"
+    "migration:revert": "npm run typeorm -- migration:revert -- -d ./src/db/typeorm.migration.config.ts",
+    "seed": "npm run build && ts-node ./node_modules/typeorm-extension/dist/cli/index.js seed -d ./src/db/data-source.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -40,6 +41,7 @@
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.20",
+    "typeorm-extension": "^3.6.3",
     "uuid": "^11.0.5"
   },
   "devDependencies": {

@@ -5,7 +5,6 @@ import { Lobby } from "../db/entities/lobby.entity";
 import { LobbyPlayer } from "../db/entities/lobbyPlayer.entity";
 import { User } from "../db/entities/user.entity";
 import { FindAllParameters, LobbyDto } from "../lobby/lobby.dto";
-import { v4 as uuid } from "uuid";
 
 @Injectable()
 export class LobbyService {

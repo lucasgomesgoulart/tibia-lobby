@@ -8,9 +8,11 @@ import {ConfigModule} from '@nestjs/config'
 import { DbModule } from './db/db.module';
 import { LobbyPlayersModule } from './lobby-players/lobby-players.module';
 import { CharactersModule } from './characters/characters.module';
+import { WorldsModule } from './worlds/worlds.module';
+import { OtserversModule } from './otservers/otservers.module';
 
 @Module({
-  imports: [LobbyModule, UsersModule, AuthModule, ConfigModule.forRoot({isGlobal: true}), DbModule, LobbyPlayersModule, CharactersModule],
+  imports: [LobbyModule, UsersModule, AuthModule, ConfigModule.forRoot({isGlobal: true}), DbModule, LobbyPlayersModule, CharactersModule, WorldsModule, OtserversModule],
   controllers: [AppController],
   providers: [AppService],
 })

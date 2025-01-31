@@ -1,9 +1,17 @@
-import { Column, Entity, PrimaryGeneratedColumn, ManyToOne } from "typeorm";
+import { Type } from 'class-transformer';
+import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn } from "typeorm";
 import { User } from "./user.entity";
 
 export enum ServerType {
     GLOBAL = "GLOBAL",
     OTSERVER = "OTSERVER",
+}
+
+export enum Vocations {
+    "DRUID",
+    "SORCERER",
+    "KNIGHT",
+    "PALADIN"
 }
 
 @Entity("characters")
@@ -19,19 +27,31 @@ export class Character {
         enum: ServerType,
     })
     serverType: ServerType;
+    
 
-    @Column({ nullable: true }) // 🔹 Se for GLOBAL, terá um mundo
+    @Column({ nullable: true })
     world: string;
 
-    @Column({ nullable: true }) // 🔹 Se for OTSERVER, terá um servidor OT
+    @Column({ nullable: true })
     otServer: string;
 
-    @Column()
-    vocation: string;
+    @Column({
+        type: "enum",
+        enum: Vocations,
+    })
+    vocation: Vocations;
 
-    @Column({ nullable: true }) // 🔹 O nível será atualizado depois
+    @Column({ nullable: true })
     level: number;
 
     @ManyToOne(() => User, (user) => user.characters, { onDelete: "CASCADE" })
     user: User;
+
+    @CreateDateColumn()
+    created_at: Date;
+
+    @UpdateDateColumn()
+    updated_at: Date;
+
+
 }

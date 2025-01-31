@@ -35,14 +35,14 @@ export class Lobby {
 
     @Column({
         type: "enum",
-        enum: ["PVP", "HUNT", "QUEST", "BOSS", "WAR", "EVENT"], // 🔹 Certifique-se que o enum está correto
+        enum: ["PVP", "HUNT", "QUEST", "BOSS", "WAR", "EVENT"], 
     })
     activityType: string;
 
     @ManyToOne(() => User, (user) => user.lobbiesOwned)
     owner?: User;
 
-    @OneToMany(() => LobbyPlayer, (lobbyPlayer) => lobbyPlayer.lobby, { cascade: true }) // 🔹 Corrija a relação aqui
+    @OneToMany(() => LobbyPlayer, (lobbyPlayer) => lobbyPlayer.lobby, { cascade: true }) 
     players: LobbyPlayer[];
 
     @Column()
