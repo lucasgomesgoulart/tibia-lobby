@@ -1,6 +1,8 @@
-import { Type } from 'class-transformer';
-import { Column, Entity, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from "typeorm";
 import { User } from "./user.entity";
+import { World } from "./world.entity";
+import { OtServer } from "./otserver.entity";
+import { IsUUID } from "class-validator";
 
 export enum ServerType {
     GLOBAL = "GLOBAL",
@@ -8,16 +10,17 @@ export enum ServerType {
 }
 
 export enum Vocations {
-    "DRUID",
-    "SORCERER",
-    "KNIGHT",
-    "PALADIN"
+    DRUID = "DRUID",
+    SORCERER = "SORCERER",
+    KNIGHT = "KNIGHT",
+    PALADIN = "PALADIN"
 }
 
 @Entity("characters")
 export class Character {
     @PrimaryGeneratedColumn("uuid")
-    id: number;
+    
+    id: string;
 
     @Column()
     name: string;
@@ -27,13 +30,12 @@ export class Character {
         enum: ServerType,
     })
     serverType: ServerType;
-    
 
-    @Column({ nullable: true })
-    world: string;
+    @ManyToOne(() => World, { nullable: true }) 
+    world?: World;
 
-    @Column({ nullable: true })
-    otServer: string;
+    @ManyToOne(() => OtServer, { nullable: true }) 
+    otServer?: OtServer; 
 
     @Column({
         type: "enum",
@@ -52,6 +54,4 @@ export class Character {
 
     @UpdateDateColumn()
     updated_at: Date;
-
-
 }

@@ -1,6 +1,5 @@
-import { IsString, IsEnum, IsOptional } from "class-validator";
+import { IsString, IsEnum, IsOptional, IsUUID } from "class-validator";
 import { ServerType, Vocations } from "src/db/entities/Characters.entity";
-
 
 export class CharacterDto {
     @IsString()
@@ -13,12 +12,10 @@ export class CharacterDto {
     vocation: Vocations;
 
     @IsOptional()
-    @IsString()
-    world?: string; 
+    @IsUUID()
+    worldId?: string; 
 
     @IsOptional()
-    @IsString()
-    otServer?: string;
-
-
+    @IsUUID()
+    otServerId?: string; 
 }
