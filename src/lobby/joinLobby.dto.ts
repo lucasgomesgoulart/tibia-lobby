@@ -1,9 +1,6 @@
 import { IsUUID } from "class-validator";
 
-export class CreateLobbyPlayerDto {
+export class JoinLobbyDto {
     @IsUUID()
     characterId: string;
-
-    @IsUUID()
-    lobbyId: string;
 }

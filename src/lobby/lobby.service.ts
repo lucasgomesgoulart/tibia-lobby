@@ -1,10 +1,12 @@
+import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
 import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { IsNull, Not, Repository } from "typeorm";
 import { Lobby } from "../db/entities/lobby.entity";
-import { LobbyPlayer } from "../db/entities/lobbyPlayer.entity";
 import { User } from "../db/entities/user.entity";
 import { FindAllParameters, LobbyDto } from "../lobby/lobby.dto";
+import { v4 as uuid } from "uuid";
+import { Character } from "src/db/entities/Characters.entity";
 
 @Injectable()
 export class LobbyService {
@@ -16,26 +18,41 @@ export class LobbyService {
         private readonly lobbyPlayerRepository: Repository<LobbyPlayer>,
 
         @InjectRepository(User)
-        private readonly userRepository: Repository<User>
+        private readonly userRepository: Repository<User>,
+
+        @InjectRepository(Character)
+        private readonly characterRepository: Repository<Character>
     ) { }
 
-    async createLobby(lobbyToCreate: LobbyDto, userId: string): Promise<Lobby> {
-        console.log(userId)
+    async createLobby(lobbyToCreate: LobbyDto, userId: string, characterId: string): Promise<Lobby> {
+        console.log(userId);
+
+
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) {
             throw new NotFoundException("Usuário não encontrado.");
         }
-    
-        
+
+
+        const character = await this.characterRepository.findOne({
+            where: { id: characterId, user: { id: userId } },
+            relations: ["user"],
+        });
+
+        if (!character) {
+            throw new NotFoundException("Personagem não encontrado ou não pertence ao usuário.");
+        }
+
+
         const activeLobby = await this.lobbyRepository.findOne({
             where: { owner: { id: userId }, isDeleted: false },
         });
-    
+
         if (activeLobby) {
             throw new ForbiddenException("Você já tem uma lobby ativa. Delete a anterior antes de criar outra.");
         }
-    
-        
+
+
         const newLobby = this.lobbyRepository.create({
             title: lobbyToCreate.title,
             minLevel: lobbyToCreate.minLevel,
@@ -47,20 +64,21 @@ export class LobbyService {
             owner: user,
             isDeleted: false,
         });
-    
-        const savedLobby = await this.lobbyRepository.save(newLobby); 
-    
-        
+
+        const savedLobby = await this.lobbyRepository.save(newLobby);
+
+
         const lobbyPlayer = this.lobbyPlayerRepository.create({
-            user: user, 
-            lobby: savedLobby, 
+            character: character,
+            lobby: savedLobby,
         });
-    
+
         await this.lobbyPlayerRepository.save(lobbyPlayer);
-    
-        return savedLobby; 
+
+        return savedLobby;
     }
-    
+
+
     async updateLobby(lobbyToUpdate: LobbyDto, userId: string, lobbyId: string): Promise<void> {
         const lobby = await this.lobbyRepository.findOne({
             where: { id: lobbyId },
@@ -143,6 +161,4 @@ export class LobbyService {
 
         return await queryBuilder.getMany();
     }
-
-
 }

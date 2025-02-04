@@ -2,20 +2,28 @@ import { Body, Controller, Post, UseGuards, HttpException, HttpStatus, Delete, P
 import { FindAllParameters, LobbyDto } from "./lobby.dto";
 import { LobbyService } from "./lobby.service";
 import { AuthGuard } from "src/auth/auth.guard";
+import { JoinLobbyDto } from "./joinLobby.dto";
 
 @UseGuards(AuthGuard)
 @Controller("lobby")
 export class LobbyController {
     constructor(private readonly LobbyService: LobbyService) { }
-
-    // 🔹 Criar uma nova lobby
+    
     @Post()
     async create(@Body() lobby: LobbyDto, @Req() req) {
         try {
-            const userId = req.userId
-            console.log(userId)
-            const newLobby = await this.LobbyService.createLobby(lobby, userId);
-
+            const userId = req.userId; 
+            const { characterId } = lobby;
+    
+            if (!characterId) {
+                throw new HttpException("É necessário escolher um personagem para entrar na lobby.", HttpStatus.BAD_REQUEST);
+            }
+    
+            console.log("Usuário:", userId);
+            console.log("Personagem escolhido:", characterId);
+    
+            const newLobby = await this.LobbyService.createLobby(lobby, userId, characterId);
+    
             return { message: "Lobby criada com sucesso.", data: newLobby };
         } catch (error) {
             throw new HttpException(
@@ -24,7 +32,6 @@ export class LobbyController {
             );
         }
     }
-
     @Put(":id")
     async updateLobby(@Param("id") lobbyId: string, @Body() lobby: LobbyDto, @Req() req) {
 
@@ -69,6 +76,4 @@ export class LobbyController {
             );
         }
     }
-
-
 }

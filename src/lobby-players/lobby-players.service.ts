@@ -1,43 +1,88 @@
-import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { IsNull, Repository } from "typeorm";
 import { LobbyPlayer } from "../db/entities/LobbyPlayer.entity";
 import { Lobby } from "../db/entities/Lobby.entity";
 import { User } from "../db/entities/User.entity";
+import { Character } from "../db/entities/Characters.entity";
+import { v4 as uuid } from "uuid"
 
 @Injectable()
 export class LobbyPlayersService {
-  constructor(
-    @InjectRepository(LobbyPlayer)
-    private readonly lobbyPlayerRepo: Repository<LobbyPlayer>,
+    constructor(
+        @InjectRepository(LobbyPlayer)
+        private readonly lobbyPlayerRepo: Repository<LobbyPlayer>,
 
-    @InjectRepository(Lobby)
-    private readonly lobbyRepo: Repository<Lobby>,
+        @InjectRepository(Lobby)
+        private readonly lobbyRepo: Repository<Lobby>,
 
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>
-  ) { }
+        @InjectRepository(User)
+        private readonly userRepo: Repository<User>,
 
-  // ✅ Usuário entra no lobby
-  async joinLobby(userId: string, lobbyId: string): Promise<LobbyPlayer> {
-    const user = await this.userRepo.findOne({ where: { id: userId } });
-    if (!user) throw new NotFoundException("Usuário não encontrado");
+        @InjectRepository(Character)
+        private readonly characterRepo: Repository<Character>
+    ) { }
 
-    const lobby = await this.lobbyRepo.findOne({ where: { id: lobbyId } });
-    if (!lobby) throw new NotFoundException("Lobby não encontrada");
+    async joinLobby(lobbyId: string, characterId: string, userId: string): Promise<LobbyPlayer> {
 
-    const existingPlayer = await this.lobbyPlayerRepo.findOne({ where: { user: { id: userId } } });
-    if (existingPlayer) throw new BadRequestException("Usuário já está em um lobby");
+        const lobby = await this.lobbyRepo.findOne({
+            where: { id: lobbyId, isDeleted: false },
+            relations: ["players"],
+        });
 
-    const newLobbyPlayer = this.lobbyPlayerRepo.create({ user, lobby });
-    return this.lobbyPlayerRepo.save(newLobbyPlayer);
-  }
+        if (!lobby) {
+            throw new NotFoundException("Lobby não encontrada ou foi deletada.");
+        }
 
-  // ✅ Usuário sai do lobby
-  async leaveLobby(userId: string): Promise<void> {
-    const player = await this.lobbyPlayerRepo.findOne({ where: { user: { id: userId } } });
-    if (!player) throw new NotFoundException("Usuário não está em nenhum lobby");
+        const playerCount = await this.lobbyPlayerRepo.count({ where: { lobby: { id: lobbyId } } });
 
-    await this.lobbyPlayerRepo.softRemove(player);
-  }
+        if (playerCount >= lobby.maxPlayers) {
+            throw new ForbiddenException("Lobby está cheia.");
+        }
+
+        const character = await this.characterRepo.findOne({
+            where: { id: characterId, user: { id: userId } },
+            relations: ["world", "otServer"],
+        });
+
+        if (!character) {
+            throw new ForbiddenException("Personagem não encontrado ou pertence a outro usuário.");
+        }
+
+        const characterInAnotherLobby = await this.lobbyPlayerRepo.findOne({
+            where: {
+                character: { id: characterId },
+                left_at: IsNull()
+            },
+        });
+
+        if (characterInAnotherLobby) {
+            throw new ForbiddenException("Este personagem já está em uma lobby ativa.");
+        }
+
+        const newLobbyPlayer = this.lobbyPlayerRepo.create({
+            id: uuid(),
+            character: character,
+            lobby: lobby,
+            joined_at: new Date(),
+            left_at: null
+        });
+
+        return this.lobbyPlayerRepo.save(newLobbyPlayer);
+    }
+
+    async leaveLobby(lobbyId: string, characterId: string): Promise<void> {
+        const player = await this.lobbyPlayerRepo.findOne({
+            where: {
+                lobby: { id: lobbyId },
+                character: { id: characterId },
+                left_at: IsNull()
+            },
+        });
+        if (!player) {
+            throw new NotFoundException("O personagem não está nesta lobby ativa.");
+        }
+        player.left_at = new Date();
+        await this.lobbyPlayerRepo.save(player);
+    }
 }

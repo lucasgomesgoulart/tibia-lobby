@@ -28,6 +28,9 @@ export class LobbyDto {
 
     @IsString()
     discordChannelLink: string;
+
+    @IsUUID()
+    characterId: string;
 }
 
 export interface FindAllParameters {

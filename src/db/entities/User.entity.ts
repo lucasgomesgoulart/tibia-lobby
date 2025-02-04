@@ -1,8 +1,7 @@
-import { 
-    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany 
+import {
+    Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany
 } from "typeorm";
 import { Lobby } from "./Lobby.entity";
-import { LobbyPlayer } from "./LobbyPlayer.entity";
 import { Character } from "./Characters.entity";
 
 @Entity("users")
@@ -10,13 +9,13 @@ export class User {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column({ unique: true })
+    @Column({ unique: true, nullable: false })
     username: string;
 
-    @Column({ unique: true })
+    @Column({ unique: true, nullable: false })
     email: string;
 
-    @Column()
+    @Column({ nullable: false })
     password: string;
 
     @Column({ nullable: true })
@@ -28,7 +27,7 @@ export class User {
     @Column({ nullable: true })
     phone: string;
 
-    // Endereço
+
     @Column({ nullable: true })
     country: string;
 
@@ -47,7 +46,7 @@ export class User {
     @Column({ nullable: true })
     address_2: string;
 
-    // Segurança e Controle
+
     @Column({ default: "user" })
     role: string;
 
@@ -63,16 +62,10 @@ export class User {
     @UpdateDateColumn()
     updated_at: Date;
 
-    // 🔹 Relação: Usuário pode criar várias lobbies
     @OneToMany(() => Lobby, (lobby) => lobby.owner)
     lobbiesOwned: Lobby[];
 
-    @OneToMany(()=> Character,(character)=> character.user)
+
+    @OneToMany(() => Character, (character) => character.user)
     characters: Character[];
-
-    // 🔹 Relação: Usuário pode estar em apenas uma lobby por vez
-    @OneToMany(() => LobbyPlayer, (lobbyPlayer) => lobbyPlayer.user)
-    lobbiesJoined: LobbyPlayer[];
 }
-
-
