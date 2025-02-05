@@ -70,6 +70,7 @@ export class LobbyPlayersService {
 
         return this.lobbyPlayerRepo.save(newLobbyPlayer);
     }
+    
 
     async leaveLobby(lobbyId: string, characterId: string): Promise<void> {
         const player = await this.lobbyPlayerRepo.findOne({

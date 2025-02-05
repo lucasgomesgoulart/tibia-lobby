@@ -40,6 +40,7 @@ export class CrawlerService {
         waitUntil: 'domcontentloaded',
         timeout: 45000
       });
+      
 
       // Verificação adicional de bloqueio
       if ((await page.content()).includes('403 Forbidden')) {
