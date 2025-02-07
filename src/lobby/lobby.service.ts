@@ -133,32 +133,47 @@ export class LobbyService {
         await this.lobbyRepository.save(lobby);
     }
 
-    async getAllLobbies(filters: Partial<FindAllParameters>): Promise<Lobby[]> {
+    async getAllLobbies(filters: Partial<FindAllParameters>): Promise<any[]> {
         const queryBuilder = this.lobbyRepository.createQueryBuilder("lobby")
             .leftJoinAndSelect("lobby.owner", "owner")
             .leftJoinAndSelect("lobby.players", "players")
+            .leftJoinAndSelect("players.character", "character") // Join para pegar informações do personagem
             .where("lobby.isDeleted = false");
-
+    
+        // 🔍 Filtros opcionais
         if (filters.title) {
             queryBuilder.andWhere("LOWER(lobby.title) LIKE LOWER(:title)", { title: `%${filters.title}%` });
         }
-
+    
         if (filters.activityType) {
             queryBuilder.andWhere("lobby.activityType = :activityType", { activityType: filters.activityType });
         }
-
+    
         if (filters.minLevel) {
             queryBuilder.andWhere("lobby.minLevel >= :minLevel", { minLevel: filters.minLevel });
         }
-
+    
         if (filters.maxLevel) {
             queryBuilder.andWhere("lobby.maxLevel <= :maxLevel", { maxLevel: filters.maxLevel });
         }
-
+    
         if (filters.ownerId) {
             queryBuilder.andWhere("lobby.ownerId = :ownerId", { ownerId: filters.ownerId });
         }
-
-        return await queryBuilder.getMany();
+    
+        const lobbies = await queryBuilder.getMany();
+    
+        // 🚀 Mapeando para adicionar jogadores ativos e vocações
+        return lobbies.map(lobby => {
+            const activePlayers = lobby.players.filter(player => !player.left_at);
+            const vocations = activePlayers.map(player => player.character?.vocation);
+    
+            return {
+                ...lobby,
+                activePlayersCount: activePlayers.length,
+                vocations: vocations,
+            };
+        });
     }
+    
 }
