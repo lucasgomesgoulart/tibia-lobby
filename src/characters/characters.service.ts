@@ -46,14 +46,14 @@ export class CharacterService {
             throw new NotFoundException("Você precisa escolher um Mundo ou um OTServer.");
         }
 
-        // 🔹 Agora estamos armazenando apenas os IDs e mantendo as relações
         const newCharacter = this.characterRepository.create({
             name: characterDto.name,
             serverType: characterDto.serverType,
             vocation: characterDto.vocation,
             user,
             world,
-            otServer
+            otServer,
+            level: characterDto.level,
         });
 
         return this.characterRepository.save(newCharacter);
