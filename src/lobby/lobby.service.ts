@@ -137,7 +137,7 @@ export class LobbyService {
         const queryBuilder = this.lobbyRepository.createQueryBuilder("lobby")
             .leftJoinAndSelect("lobby.owner", "owner")
             .leftJoinAndSelect("lobby.players", "players")
-            .leftJoinAndSelect("players.character", "character") // Join para pegar informações do personagem
+            .leftJoinAndSelect("players.character", "character")
             .where("lobby.isDeleted = false");
     
         // 🔍 Filtros opcionais
@@ -163,8 +163,22 @@ export class LobbyService {
     
         const lobbies = await queryBuilder.getMany();
     
-        // 🚀 Mapeando para adicionar jogadores ativos e vocações
-        return lobbies.map(lobby => {
+        // 🚀 Filtro de número de jogadores ativos
+        const filteredLobbies = lobbies.filter(lobby => {
+            const activePlayersCount = lobby.players.filter(player => !player.left_at).length;
+    
+            if (filters.minPlayers !== undefined && activePlayersCount < filters.minPlayers) {
+                return false;
+            }
+    
+            if (filters.maxPlayers !== undefined && activePlayersCount > filters.maxPlayers) {
+                return false;
+            }
+    
+            return true;
+        });
+    
+        return filteredLobbies.map(lobby => {
             const activePlayers = lobby.players.filter(player => !player.left_at);
             const vocations = activePlayers.map(player => player.character?.vocation);
     
@@ -175,5 +189,6 @@ export class LobbyService {
             };
         });
     }
+    
     
 }

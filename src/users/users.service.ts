@@ -38,6 +38,21 @@ export class UsersService {
 
         return this.userRepository.save(user);
     }
+
+    async updateUser(id: string, userToUpdate: Partial<User>): Promise<User>  {
+        try {
+            const user = await this.userRepository.findOneBy({id})
+            if (!user) {
+                throw new Error("User not found");
+            }
+
+            const updatedUser = {...user, ...userToUpdate}
+            return await this.userRepository.save(updatedUser);
+        } catch (error) {
+            throw new Error(error.message || "Erro ao atualizar usuário")
+        }
+    }
+    
     async findUserByUsername(username: string): Promise<User | null> {
         return this.userRepository.findOne({ where: { username } });
     }

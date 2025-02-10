@@ -2,7 +2,6 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, Up
 import { User } from "./user.entity";
 import { World } from "./world.entity";
 import { OtServer } from "./otserver.entity";
-import { IsUUID } from "class-validator";
 
 export enum ServerType {
     GLOBAL = "GLOBAL",

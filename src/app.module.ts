@@ -10,9 +10,10 @@ import { LobbyPlayersModule } from './lobby-players/lobby-players.module';
 import { CharactersModule } from './characters/characters.module';
 import { WorldsModule } from './worlds/worlds.module';
 import { OtserversModule } from './otservers/otservers.module';
+import {ActivityTypeModule } from './activity-type/activity-type.module'
 
 @Module({
-  imports: [LobbyModule, UsersModule, AuthModule, ConfigModule.forRoot({ isGlobal: true }), DbModule, LobbyPlayersModule, CharactersModule, WorldsModule, OtserversModule],
+  imports: [LobbyModule, UsersModule, AuthModule, ConfigModule.forRoot({ isGlobal: true }), DbModule, ActivityTypeModule,LobbyPlayersModule, CharactersModule, WorldsModule, OtserversModule, ],
   controllers: [AppController],
   providers: [AppService],
 })

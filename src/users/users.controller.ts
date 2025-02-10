@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, HttpException, HttpStatus, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, HttpException, HttpStatus, Req, Param, Put } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserDto } from './user.dto';
 
@@ -14,6 +14,19 @@ export class UsersController {
         } catch (err) {
             throw new HttpException(
                 { message: err.message || "Erro ao criar usuário" },
+                HttpStatus.BAD_REQUEST
+            );
+        }
+    }
+
+    @Put(":id")
+    async updateUser(@Param('id') id: string, @Body() user: Partial<UserDto>) {
+        try {
+            const userToUpdate = await this.UsersService.updateUser(id, user)
+            return { message: "Usuário atualizado com sucesso", data: userToUpdate }
+        } catch (error) {
+            throw new HttpException(
+                { message: error.message || "Erro ao atualizar usuário" },
                 HttpStatus.BAD_REQUEST
             );
         }
