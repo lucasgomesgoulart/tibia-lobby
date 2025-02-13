@@ -1,11 +1,10 @@
 import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
 import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Not, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { Lobby } from "../db/entities/lobby.entity";
 import { User } from "../db/entities/user.entity";
 import { FindAllParameters, LobbyDto } from "../lobby/lobby.dto";
-import { v4 as uuid } from "uuid";
 import { Character } from "src/db/entities/Characters.entity";
 
 @Injectable()
@@ -49,7 +48,7 @@ export class LobbyService {
         });
 
         if (activeLobby) {
-            throw new ForbiddenException("Você já tem uma lobby ativa. Delete a anterior antes de criar outra.");
+            throw new ForbiddenException("Você já possui uma lobby ativa. Exclua a anterior antes de criar uma nova.")
         }
 
 
@@ -139,49 +138,49 @@ export class LobbyService {
             .leftJoinAndSelect("lobby.players", "players")
             .leftJoinAndSelect("players.character", "character")
             .where("lobby.isDeleted = false");
-    
+
         // 🔍 Filtros opcionais
         if (filters.title) {
             queryBuilder.andWhere("LOWER(lobby.title) LIKE LOWER(:title)", { title: `%${filters.title}%` });
         }
-    
+
         if (filters.activityType) {
             queryBuilder.andWhere("lobby.activityType = :activityType", { activityType: filters.activityType });
         }
-    
+
         if (filters.minLevel) {
             queryBuilder.andWhere("lobby.minLevel >= :minLevel", { minLevel: filters.minLevel });
         }
-    
+
         if (filters.maxLevel) {
             queryBuilder.andWhere("lobby.maxLevel <= :maxLevel", { maxLevel: filters.maxLevel });
         }
-    
+
         if (filters.ownerId) {
             queryBuilder.andWhere("lobby.ownerId = :ownerId", { ownerId: filters.ownerId });
         }
-    
+
         const lobbies = await queryBuilder.getMany();
-    
+
         // 🚀 Filtro de número de jogadores ativos
         const filteredLobbies = lobbies.filter(lobby => {
             const activePlayersCount = lobby.players.filter(player => !player.left_at).length;
-    
+
             if (filters.minPlayers !== undefined && activePlayersCount < filters.minPlayers) {
                 return false;
             }
-    
+
             if (filters.maxPlayers !== undefined && activePlayersCount > filters.maxPlayers) {
                 return false;
             }
-    
+
             return true;
         });
-    
+
         return filteredLobbies.map(lobby => {
             const activePlayers = lobby.players.filter(player => !player.left_at);
             const vocations = activePlayers.map(player => player.character?.vocation);
-    
+
             return {
                 ...lobby,
                 activePlayersCount: activePlayers.length,
@@ -189,6 +188,14 @@ export class LobbyService {
             };
         });
     }
+
+    async getUserLobby(userId: string): Promise<Lobby | null> {
+        return this.lobbyRepository.findOne({
+            where: { owner: { id: userId }, isDeleted: false },
+            relations: ["players", "players.character"], // Buscar os jogadores e seus personagens
+        });
+    }
     
-    
+
+
 }

@@ -8,22 +8,18 @@ import { JoinLobbyDto } from "./joinLobby.dto";
 @Controller("lobby")
 export class LobbyController {
     constructor(private readonly LobbyService: LobbyService) { }
-    
+
     @Post()
     async create(@Body() lobby: LobbyDto, @Req() req) {
         try {
-            const userId = req.userId; 
+            const userId = req.userId;
             const { characterId } = lobby;
-    
+
             if (!characterId) {
                 throw new HttpException("É necessário escolher um personagem para entrar na lobby.", HttpStatus.BAD_REQUEST);
             }
-    
-            console.log("Usuário:", userId);
-            console.log("Personagem escolhido:", characterId);
-    
             const newLobby = await this.LobbyService.createLobby(lobby, userId, characterId);
-    
+
             return { message: "Lobby criada com sucesso.", data: newLobby };
         } catch (error) {
             throw new HttpException(
@@ -46,7 +42,6 @@ export class LobbyController {
             );
         }
     }
-
 
     @Delete(":id")
     async deleteLobby(@Param("id") lobbyId: string, @Req() req) {
@@ -72,6 +67,24 @@ export class LobbyController {
         } catch (err) {
             throw new HttpException(
                 { message: err.message || "Erro ao buscar lobbies", error: err.stack },
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
+        }
+    }
+    @Get("/my-lobby")
+    async getUserLobby(@Req() req) {
+        try {
+            const userId = req.userId;
+            const lobby = await this.LobbyService.getUserLobby(userId);
+
+            if (!lobby) {
+                return { message: "Nenhuma lobby ativa encontrada.", data: null };
+            }
+
+            return { message: "Lobby carregada com sucesso.", data: lobby };
+        } catch (err) {
+            throw new HttpException(
+                { message: err.message || "Erro ao buscar a lobby do usuário", error: err.stack },
                 HttpStatus.INTERNAL_SERVER_ERROR
             );
         }
