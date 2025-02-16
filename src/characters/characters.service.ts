@@ -33,8 +33,7 @@ export class CharacterService {
         let otServer = null;
         let vocation = characterDto.vocation;
         let level = characterDto.level;
-    
-        console.log("Criando personagem - Tipo de servidor:", characterDto.serverType);
+
     
         if (characterDto.serverType === "GLOBAL") {
             const tibiaData = await this.fetchTibiaCharacterData(characterDto.name);
@@ -69,10 +68,7 @@ export class CharacterService {
             }
         
             level = tibiaData.level;
-        
     
-            console.log(`Vocação definida: ${vocation}`);
-            console.log(`Nível do personagem: ${level}`);
         }
     
         if (characterDto.serverType === "OTSERVER") {
@@ -104,22 +100,21 @@ export class CharacterService {
             level,
         });
     
-        console.log("Salvando novo personagem:", newCharacter);
+      
         return await this.characterRepository.save(newCharacter);
     }
     
     async fetchTibiaCharacterData(name: string) {
         try {
             const response = await fetch(`https://api.tibiadata.com/v4/character/${encodeURIComponent(name)}`);
-            console.log(`Response recebido da API TibiaData:`, response);
+     
     
             if (!response.ok) {
                 throw new Error(`Erro na API TibiaData: ${response.statusText}`);
             }
     
             const data = await response.json();
-            console.log("JSON completo da API TibiaData:", JSON.stringify(data, null, 2));
-    
+          
             // 🚀 Ajustando o acesso correto aos dados
             if (!data || !data.character || !data.character.character) {
                 console.error("Erro: Estrutura da resposta da API TibiaData mudou ou personagem não encontrado.", data);
@@ -128,8 +123,7 @@ export class CharacterService {
     
             const tibiaCharacter = data.character.character; // 🔹 Correção AQUI!
             
-            console.log("Dados do personagem encontrados:", tibiaCharacter);
-    
+         
             return {
                 name: tibiaCharacter.name,
                 world: tibiaCharacter.world,

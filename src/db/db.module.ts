@@ -2,8 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import * as path from 'path';
-
-console.log(__dirname)
 @Module({
     imports: [TypeOrmModule.forRootAsync({
         useFactory: async (configService: ConfigService) => ({

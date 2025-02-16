@@ -24,8 +24,6 @@ export class LobbyService {
     ) { }
 
     async createLobby(lobbyToCreate: LobbyDto, userId: string, characterId: string): Promise<Lobby> {
-        console.log(userId);
-
 
         const user = await this.userRepository.findOne({ where: { id: userId } });
         if (!user) {
@@ -83,8 +81,6 @@ export class LobbyService {
             where: { id: lobbyId },
             relations: ['owner'],
         })
-
-        console.log(lobby)
         if (!lobby) {
             throw new NotFoundException("Lobby não encontrada.");
         }
@@ -189,13 +185,30 @@ export class LobbyService {
         });
     }
 
-    async getUserLobby(userId: string): Promise<Lobby | null> {
-        return this.lobbyRepository.findOne({
-            where: { owner: { id: userId }, isDeleted: false },
-            relations: ["players", "players.character"], // Buscar os jogadores e seus personagens
+    async getUserLobby(userId: string) {
+        // Tenta encontrar o registro de participação
+        let playerInLobby = await this.lobbyPlayerRepository.findOne({
+            where: { character: { user: { id: userId } }, left_at: null },
+            relations: ['lobby', 'lobby.players', 'lobby.players.character', 'lobby.owner', 'character', 'character.user'],
         });
+        
+        if (!playerInLobby) {
+            // Se não encontrou um registro, tenta buscar uma lobby onde o usuário seja o dono
+            const ownedLobby = await this.lobbyRepository.findOne({
+                where: { owner: { id: userId }, isDeleted: false },
+                relations: ['players', 'players.character', 'owner'],
+            });
+            if (ownedLobby) {
+                return ownedLobby;
+            }
+            return null;
+        }
+        
+        const lobby = playerInLobby.lobby;
+        if (lobby.isDeleted || !lobby.owner) {
+            return null;
+        }
+        return lobby;
     }
     
-
-
 }

@@ -47,7 +47,6 @@ export class LobbyController {
     async deleteLobby(@Param("id") lobbyId: string, @Req() req) {
         try {
             const idUserLogado = req.userId
-            console.log(idUserLogado)
             await this.LobbyService.deleteLobby(lobbyId, idUserLogado);
             return { message: "Lobby deletada como deletada com sucesso." };
         } catch (err) {

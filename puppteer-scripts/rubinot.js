@@ -24,7 +24,6 @@ const puppeteer = require('puppeteer');
     
     if (checkbox) {
       await checkbox.click();
-      console.log('✅ Checkbox clicado com sucesso!');
     } else {
       throw new Error('❌ Checkbox não encontrado!');
     }
