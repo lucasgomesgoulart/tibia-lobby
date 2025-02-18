@@ -19,6 +19,6 @@ export class CharacterController {
     async getUserCharacters(@Req() req) {
         const userId = req.userId
         const characters = await this.characterService.getUserCharacters(userId);
-        return { message: "Lista de personagens carregada.", data: characters };
+        return { data: characters };
     }
 }
