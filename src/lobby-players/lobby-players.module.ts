@@ -7,11 +7,12 @@ import { User } from "src/db/entities/User.entity";
 import { Lobby } from "src/db/entities/Lobby.entity";
 import { Character } from "src/db/entities/Characters.entity";
 import { LobbyService } from "src/lobby/lobby.service";
+import { LobbyGateway } from "src/lobby/gateway";
 
 @Module({
     imports: [TypeOrmModule.forFeature([LobbyPlayer, Character,User, Lobby])],
     controllers: [LobbyPlayersController],
-    providers: [LobbyPlayersService,LobbyService],
+    providers: [LobbyPlayersService,LobbyService, LobbyGateway],
     exports: [TypeOrmModule],
 })
 export class LobbyPlayersModule {}

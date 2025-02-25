@@ -23,11 +23,11 @@ export class UsersService {
         });
 
         if (usernameFound) {
-            throw new Error("Username already exists");
+            throw new Error;
         }
 
         if (emailFound) {
-            throw new Error("Email already exists");
+            throw new Error("Email já está sendo usado.");
         }
 
         const user = this.userRepository.create({

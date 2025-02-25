@@ -1,3 +1,4 @@
+import { LobbyGateway } from './gateway';
 import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
 import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -20,8 +21,10 @@ export class LobbyService {
     private readonly userRepository: Repository<User>,
 
     @InjectRepository(Character)
-    private readonly characterRepository: Repository<Character>
-  ) {}
+    private readonly characterRepository: Repository<Character>,
+
+    private readonly lobbyGateway: LobbyGateway,
+  ) { }
 
   async createLobby(lobbyToCreate: LobbyDto, userId: string, characterId: string): Promise<Lobby> {
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -33,10 +36,10 @@ export class LobbyService {
       where: { id: characterId, user: { id: userId } },
       relations: ["user"],
     });
-    if (!character) {
-      throw new NotFoundException("Personagem não encontrado ou não pertence ao usuário.");
-    }
 
+    if (!character) {
+      throw new Error;
+    }
     const activeLobby = await this.lobbyRepository.findOne({
       where: { owner: { id: userId }, isDeleted: false },
     });
@@ -55,14 +58,16 @@ export class LobbyService {
       owner: user,
       isDeleted: false,
     });
+
     const savedLobby = await this.lobbyRepository.save(newLobby);
 
     const lobbyPlayer = this.lobbyPlayerRepository.create({
       character: character,
       lobby: savedLobby,
+      isLeader: true,
     });
     await this.lobbyPlayerRepository.save(lobbyPlayer);
-
+    this.lobbyGateway.server.emit('lobbyCreated', savedLobby);
     return savedLobby;
   }
 
@@ -91,6 +96,7 @@ export class LobbyService {
       discordChannelLink: lobbyToUpdate.discordChannelLink ?? lobby.discordChannelLink,
     });
     await this.lobbyRepository.save(lobby);
+    this.lobbyGateway.server.to(lobbyId).emit('lobbyUpdated', lobby);
   }
 
   async getAllLobbies(filters: Partial<FindAllParameters>): Promise<any[]> {

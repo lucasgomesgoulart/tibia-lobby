@@ -18,4 +18,7 @@ export class LobbyPlayer {
 
     @Column({default: null })
     left_at: Date;
+
+    @Column({default: false})
+    isLeader: boolean;
 }

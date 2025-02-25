@@ -15,6 +15,7 @@ export class LobbyController {
     if (!characterId) {
       throw new HttpException("É necessário escolher um personagem para entrar na lobby.", HttpStatus.BAD_REQUEST);
     }
+
     const newLobby = await this.lobbyService.createLobby(lobby, userId, characterId);
     return { message: "Lobby criada com sucesso.", data: newLobby };
   }

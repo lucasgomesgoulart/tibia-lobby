@@ -13,7 +13,7 @@ export class UsersController {
             return { message: "Usuário criado com sucesso", data: newUser };
         } catch (err) {
             throw new HttpException(
-                { message: err.message || "Erro ao criar usuário" },
+                { message: err.message || "Erro ao criar usuário" }, 
                 HttpStatus.BAD_REQUEST
             );
         }

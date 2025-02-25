@@ -1,3 +1,4 @@
+import { LobbyGateway } from './../lobby/gateway';
 import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
 import { Injectable, NotFoundException, HttpException, HttpStatus } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -19,39 +20,54 @@ export class LobbyPlayersService {
     private readonly userRepository: Repository<User>,
 
     @InjectRepository(Character)
-    private readonly characterRepository: Repository<Character>
+    private readonly characterRepository: Repository<Character>,
+
+    private readonly lobbyGateway: LobbyGateway
   ) {}
 
   async joinLobby(lobbyId: string, characterId: string, userId: string) {
-    // Verifica se o usuário já é dono de uma lobby
+    // Verifica se o usuário já possui uma lobby ativa como dono
     const ownedLobby = await this.lobbyRepository.findOne({ where: { owner: { id: userId }, isDeleted: false } });
     if (ownedLobby) {
       throw new HttpException('Você já possui uma lobby ativa como dono.', HttpStatus.FORBIDDEN);
     }
-
-    // Verifica se o usuário já está em uma lobby
+  
+    // Verifica se o usuário já está em uma lobby ativa como jogador
     const playerInLobby = await this.lobbyPlayersRepository.findOne({
       where: { character: { user: { id: userId } }, left_at: IsNull() },
       relations: ['character', 'character.user'],
     });
-    console.log("Resultado de playerInLobby:", playerInLobby);
     if (playerInLobby) {
       throw new HttpException('Você já está em uma lobby ativa como jogador.', HttpStatus.FORBIDDEN);
     }
-
-    // Verifica se o personagem já está em outra lobby
+  
+    // Verifica se o personagem já está em uma lobby ativa
     const characterInLobby = await this.lobbyPlayersRepository.findOne({
       where: { character: { id: characterId }, left_at: IsNull() },
     });
     if (characterInLobby) {
       throw new HttpException('Este personagem já está em uma lobby ativa.', HttpStatus.FORBIDDEN);
     }
-
-    return this.lobbyPlayersRepository.save({
+  
+    // Salva o registro de entrada na lobby
+    const newLobbyPlayer = await this.lobbyPlayersRepository.save({
       lobby: { id: lobbyId },
       character: { id: characterId },
       joined_at: new Date(),
     });
+  
+    // Emite um evento para a room específica da lobby indicando que um novo jogador entrou
+    this.lobbyGateway.server.to(lobbyId).emit('playerJoined', newLobbyPlayer);
+  
+    // Opcional: Se você também tiver uma room global para a listagem de lobbies (ex.: "lobbyList"),
+    // emita um evento para atualizar a lista geral
+    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
+      lobbyId,
+      action: 'playerJoined',
+      newLobbyPlayer,
+    });
+  
+    return newLobbyPlayer;
   }
 
   async leaveLobby(lobbyId: string, characterId: string, userId: string): Promise<void> {
@@ -59,9 +75,9 @@ export class LobbyPlayersService {
     if (!lobby) {
       throw new NotFoundException("Lobby não encontrada.");
     }
-
+  
+    // Se o usuário for o dono, expulsa todos os jogadores e "fecha" a lobby
     if (lobby.owner.id === userId) {
-      // Se o usuário é o dono, expulsa todos os jogadores e deleta a lobby
       const players = await this.lobbyPlayersRepository.find({ where: { lobby: { id: lobbyId }, left_at: IsNull() } });
       for (const player of players) {
         player.left_at = new Date();
@@ -69,20 +85,34 @@ export class LobbyPlayersService {
       }
       lobby.isDeleted = true;
       await this.lobbyRepository.save(lobby);
+  
+      // Emite evento para a room da lobby informando que ela foi fechada
+      this.lobbyGateway.server.to(lobbyId).emit('lobbyClosed', { lobbyId });
+      // Emite também para a room global de lobbies para atualizar a lista geral
+      this.lobbyGateway.server.to('lobbyList').emit('lobbyDeleted', { lobbyId });
+  
       return;
     }
-
-    // Se não é o dono, apenas marca que o usuário saiu da lobby
-    const player = await this.lobbyPlayersRepository.findOne({ where: { lobby: { id: lobbyId }, character: { id: characterId }, left_at: IsNull() } });
+  
+    // Se não for o dono, marca que o jogador saiu da lobby
+    const player = await this.lobbyPlayersRepository.findOne({
+      where: { lobby: { id: lobbyId }, character: { id: characterId }, left_at: IsNull() }
+    });
     if (!player) {
       throw new NotFoundException("O personagem não está nesta lobby ativa.");
     }
     player.left_at = new Date();
     await this.lobbyPlayersRepository.save(player);
+  
+    // Emite evento para a room específica da lobby informando que um jogador saiu
+    this.lobbyGateway.server.to(lobbyId).emit('playerLeft', { characterId });
+    // Emite um evento global para atualizar a lista de lobbies, se necessário
+    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId, action: 'playerLeft', characterId });
   }
+  
 
   async leaveOrDeleteLobby(userId: string): Promise<void> {
-    // Busca o registro de participação do usuário (jogador ativo)
+    
     const player = await this.lobbyPlayersRepository.findOne({
       where: { character: { user: { id: userId } }, left_at: IsNull() },
       relations: ['lobby', 'lobby.owner'],
@@ -98,7 +128,7 @@ export class LobbyPlayersService {
     }
 
     if (lobby.owner.id === userId) {
-      // Se o usuário é o dono, expulsa todos os jogadores e deleta a lobby
+      
       await this.lobbyPlayersRepository
         .createQueryBuilder()
         .update()
@@ -110,7 +140,7 @@ export class LobbyPlayersService {
       lobby.isDeleted = true;
       await this.lobbyRepository.save(lobby);
     } else {
-      // Se não é o dono, marca apenas que o usuário saiu da lobby
+      
       player.left_at = new Date();
       await this.lobbyPlayersRepository.save(player);
     }
@@ -127,18 +157,31 @@ export class LobbyPlayersService {
     if (!player) {
       throw new HttpException("O personagem não está nesta lobby.", HttpStatus.NOT_FOUND);
     }
+    // Marca o jogador como expulso
     player.left_at = new Date();
     await this.lobbyPlayersRepository.save(player);
-
-    // Impede o retorno por 3 minutos
+  
+    // Emite um evento para a room da lobby informando que um jogador foi expulso
+    this.lobbyGateway.server.to(lobbyId).emit('playerKicked', { targetCharacterId });
+  
+    // Opcional: Atualiza a room global de lobbies para refletir a alteração
+    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId, action: 'playerKicked', targetCharacterId });
+  
+    // Após 3 minutos, permite que o jogador retorne (kick expira)
     setTimeout(async () => {
       player.left_at = null;
       await this.lobbyPlayersRepository.save(player);
+  
+      // Emite um evento informando que o período de expulsão terminou
+      this.lobbyGateway.server.to(lobbyId).emit('kickExpired', { targetCharacterId });
+      // Atualiza a lista global, se necessário
+      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId, action: 'kickExpired', targetCharacterId });
     }, 180000);
   }
+  
 
   async getUserLobbyData(userId: string): Promise<{ lobby: Lobby, myCharacterId: string } | null> {
-    // Tenta encontrar o registro de participação do usuário
+    
     const playerInLobby = await this.lobbyPlayersRepository.findOne({
       where: { character: { user: { id: userId } }, left_at: IsNull() },
       relations: [
@@ -151,8 +194,6 @@ export class LobbyPlayersService {
       ],
     });
 
-    console.log("playerInLobby:", playerInLobby);
-
     if (playerInLobby) {
       const lobby = playerInLobby.lobby;
       if (lobby.isDeleted || !lobby.owner) {
@@ -161,7 +202,7 @@ export class LobbyPlayersService {
       return { lobby, myCharacterId: playerInLobby.character.id };
     }
 
-    // Se não encontrou o registro, tenta buscar uma lobby onde o usuário seja o dono
+    
     const ownedLobby = await this.lobbyRepository.findOne({
       where: { owner: { id: userId }, isDeleted: false },
       relations: ['players', 'players.character', 'owner'],
