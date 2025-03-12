@@ -1,27 +1,29 @@
 // src/lobbies/lobbies.controller.ts
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '../auth/auth.guard';
+import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { AuthGuard } from 'src/auth/auth.guard';
 import { LobbiesService } from './lobby.service';
-import { CreateLobbyDto } from './createLobby.dto';
-import { JoinLobbyDto } from './joinLobby.dto';
+import { FilterLobbiesDto } from './filter-lobbies.dto';
 
+@UseGuards(AuthGuard)
 @Controller('lobbies')
 export class LobbiesController {
   constructor(private readonly lobbiesService: LobbiesService) {}
 
-  @Post()
-  @UseGuards(AuthGuard)
-  async createLobby(@Body() createLobbyDto: CreateLobbyDto, @Req() req) {
-    const userId = req.userId;
-    const lobby = await this.lobbiesService.createLobby(userId, createLobbyDto);
-    return { message: 'Lobby criada com sucesso', data: lobby };
+  // Endpoint para listar lobbies com filtros e paginação
+  @Get()
+  async getLobbies(@Query() filter: FilterLobbiesDto) {
+    const lobbies = await this.lobbiesService.findLobbies(filter);
+    return { message: 'Lobbies carregadas com sucesso', data: lobbies };
   }
 
-  @Post('join')
-  @UseGuards(AuthGuard)
-  async joinLobby(@Body() joinLobbyDto: JoinLobbyDto, @Req() req) {
+  // Endpoint para recuperar a lobby em que o usuário está (se houver)
+  @Get('me')
+  async getUserLobby(@Req() req) {
     const userId = req.userId;
-    const lobby = await this.lobbiesService.joinLobby(userId, joinLobbyDto);
-    return { message: 'Participação na lobby realizada com sucesso', data: lobby };
+    const lobbyData = await this.lobbiesService.getUserLobbyData(userId);
+    if (!lobbyData) {
+      return { message: 'Nenhuma lobby ativa encontrada', data: null };
+    }
+    return { message: 'Lobby carregada com sucesso', data: lobbyData };
   }
 }

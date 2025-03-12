@@ -1,4 +1,4 @@
-// src/lobbies/lobbies.service.ts
+import { FilterLobbiesDto } from './filter-lobbies.dto';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Character } from 'src/db/entities/Characters.entity';
@@ -27,7 +27,49 @@ export class LobbiesService {
 
     @InjectRepository(ActivityType)
     private activityTypeRepository: Repository<ActivityType>,
-  ) {}
+  ) { }
+
+  async findLobbies(filter: FilterLobbiesDto): Promise<Lobby[]> {
+    const query = this.lobbyRepository.createQueryBuilder('lobby')
+      .where('lobby.isDeleted = false');
+
+    if (filter.title) {
+      query.andWhere('lobby.title ILIKE :title', { title: `%${filter.title}%` });
+    }
+    if (filter.activityTypeId) {
+      query.andWhere('lobby.activityType = :activityTypeId', { activityTypeId: filter.activityTypeId });
+    }
+    if (filter.minLevel) {
+      query.andWhere('lobby.minLevel >= :minLevel', { minLevel: filter.minLevel });
+    }
+    if (filter.maxLevel) {
+      query.andWhere('lobby.maxLevel <= :maxLevel', { maxLevel: filter.maxLevel });
+    }
+    if (filter.skip) {
+      query.skip(filter.skip);
+    }
+    if (filter.take) {
+      query.take(filter.take);
+    }
+
+    return query.getMany();
+  }
+
+  async getUserLobbyData(userId: string): Promise<{ lobby: Lobby; myCharacterId: string } | null> {
+    // Busca um LobbyPlayer ativo para algum character do usuário
+    const playerInLobby = await this.lobbyPlayerRepository.findOne({
+      where: { character: { user: { id: userId } }, left_at: null },
+      relations: ['lobby', 'character', 'lobby.owner', 'lobby.players'],
+    });
+    if (playerInLobby) {
+      const lobby = playerInLobby.lobby;
+      if (lobby.isDeleted || !lobby.owner) {
+        return null;
+      }
+      return { lobby, myCharacterId: playerInLobby.character.id };
+    }
+    return null;
+  }
 
   async createLobby(userId: string, createLobbyDto: CreateLobbyDto): Promise<Lobby> {
     // Recupera o usuário com seus characters
