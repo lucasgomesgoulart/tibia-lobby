@@ -12,18 +12,17 @@ export class LobbyGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
   server: Server;
 
   afterInit(server: Server) {
-    console.log('Socket.IO server inicializado');
+    
   }
 
   handleConnection(client: Socket) {
-    console.log(`Cliente conectado: ${client.id}`);
+    
 
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Cliente desconectado: ${client.id}`);
+    
   }
-
 
   @SubscribeMessage('joinLobbyRoom')
   handleJoinLobbyRoom(
@@ -31,7 +30,7 @@ export class LobbyGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     @ConnectedSocket() client: Socket
   ) {
     client.join(lobbyId);
-    console.log(`Cliente ${client.id} entrou na room: ${lobbyId}`);
+    
     return { event: 'joinedLobbyRoom', data: lobbyId };
   }
 
@@ -42,7 +41,7 @@ export class LobbyGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     @ConnectedSocket() client: Socket
   ) {
     client.leave(lobbyId);
-    console.log(`Cliente ${client.id} saiu da room: ${lobbyId}`);
+    
     return { event: 'leftLobbyRoom', data: lobbyId };
   }
 }

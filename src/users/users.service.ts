@@ -58,6 +58,8 @@ export class UsersService {
     }
 
     async getUserInfo(id: string): Promise<User | null> {
-        return this.userRepository.findOne({ where: { id } });
+        const response =  await this.userRepository.findOne({ where: { id } });
+        console.log(response)
+        return response
     }
 }

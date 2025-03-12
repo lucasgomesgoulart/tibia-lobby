@@ -70,65 +70,23 @@ export class LobbyPlayersService {
     return newLobbyPlayer;
   }
 
-  async leaveLobby(lobbyId: string, characterId: string, userId: string): Promise<void> {
-    const lobby = await this.lobbyRepository.findOne({ where: { id: lobbyId }, relations: ['owner'] });
-    if (!lobby) {
-      throw new NotFoundException("Lobby não encontrada.");
-    }
-  
-    // Se o usuário for o dono, expulsa todos os jogadores e "fecha" a lobby
-    if (lobby.owner.id === userId) {
-      const players = await this.lobbyPlayersRepository.find({ where: { lobby: { id: lobbyId }, left_at: IsNull() } });
-      for (const player of players) {
-        player.left_at = new Date();
-        await this.lobbyPlayersRepository.save(player);
-      }
-      lobby.isDeleted = true;
-      await this.lobbyRepository.save(lobby);
-  
-      // Emite evento para a room da lobby informando que ela foi fechada
-      this.lobbyGateway.server.to(lobbyId).emit('lobbyClosed', { lobbyId });
-      // Emite também para a room global de lobbies para atualizar a lista geral
-      this.lobbyGateway.server.to('lobbyList').emit('lobbyDeleted', { lobbyId });
-  
-      return;
-    }
-  
-    // Se não for o dono, marca que o jogador saiu da lobby
-    const player = await this.lobbyPlayersRepository.findOne({
-      where: { lobby: { id: lobbyId }, character: { id: characterId }, left_at: IsNull() }
-    });
-    if (!player) {
-      throw new NotFoundException("O personagem não está nesta lobby ativa.");
-    }
-    player.left_at = new Date();
-    await this.lobbyPlayersRepository.save(player);
-  
-    // Emite evento para a room específica da lobby informando que um jogador saiu
-    this.lobbyGateway.server.to(lobbyId).emit('playerLeft', { characterId });
-    // Emite um evento global para atualizar a lista de lobbies, se necessário
-    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId, action: 'playerLeft', characterId });
-  }
-  
-
   async leaveOrDeleteLobby(userId: string): Promise<void> {
-    
     const player = await this.lobbyPlayersRepository.findOne({
       where: { character: { user: { id: userId } }, left_at: IsNull() },
       relations: ['lobby', 'lobby.owner'],
     });
-
+  
     if (!player) {
       throw new NotFoundException("Você não está em nenhuma lobby ativa.");
     }
-
+  
     const lobby = player.lobby;
     if (!lobby) {
       throw new NotFoundException("Lobby não encontrada.");
     }
-
+  
     if (lobby.owner.id === userId) {
-      
+      // Se o dono está excluindo a lobby, marca todos os jogadores como saídos
       await this.lobbyPlayersRepository
         .createQueryBuilder()
         .update()
@@ -136,16 +94,30 @@ export class LobbyPlayersService {
         .where("lobbyId = :lobbyId", { lobbyId: lobby.id })
         .andWhere("left_at IS NULL")
         .execute();
-
+  
       lobby.isDeleted = true;
       await this.lobbyRepository.save(lobby);
+  
+      // Remove todos os sockets que estão na room da lobby
+      this.lobbyGateway.server.in(lobby.id).socketsLeave(lobby.id);
+      // Emite evento global para atualizar a listagem
+      this.lobbyGateway.server.emit('lobbyDeleted', { lobbyId: lobby.id });
     } else {
-      
+      // Se não for o dono, apenas marca o jogador como saiu
       player.left_at = new Date();
       await this.lobbyPlayersRepository.save(player);
+  
+      // Aqui, se você tiver um mapeamento de socket por usuário, remova somente o socket do usuário que saiu.
+      // Caso contrário, você pode emitir um evento para que o cliente se desconecte da room.
+      this.lobbyGateway.server.to(lobby.id).emit('playerLeft', { characterId: player.character.id });
+      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
+        lobbyId: lobby.id,
+        action: 'playerLeft',
+        characterId: player.character.id,
+      });
     }
   }
-
+  
   async kickPlayer(lobbyId: string, targetCharacterId: string, userId: string): Promise<void> {
     const lobby = await this.lobbyRepository.findOne({ where: { id: lobbyId }, relations: ['owner'] });
     if (lobby.owner.id !== userId) {
@@ -161,23 +133,29 @@ export class LobbyPlayersService {
     player.left_at = new Date();
     await this.lobbyPlayersRepository.save(player);
   
-    // Emite um evento para a room da lobby informando que um jogador foi expulso
+    // Emite um evento para a room da lobby informando que o jogador foi expulso
     this.lobbyGateway.server.to(lobbyId).emit('playerKicked', { targetCharacterId });
-  
-    // Opcional: Atualiza a room global de lobbies para refletir a alteração
-    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId, action: 'playerKicked', targetCharacterId });
+    // Atualiza a room global de lobbies
+    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
+      lobbyId,
+      action: 'playerKicked',
+      targetCharacterId,
+    });
   
     // Após 3 minutos, permite que o jogador retorne (kick expira)
     setTimeout(async () => {
       player.left_at = null;
       await this.lobbyPlayersRepository.save(player);
   
-      // Emite um evento informando que o período de expulsão terminou
       this.lobbyGateway.server.to(lobbyId).emit('kickExpired', { targetCharacterId });
-      // Atualiza a lista global, se necessário
-      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId, action: 'kickExpired', targetCharacterId });
+      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
+        lobbyId,
+        action: 'kickExpired',
+        targetCharacterId,
+      });
     }, 180000);
   }
+  
   
 
   async getUserLobbyData(userId: string): Promise<{ lobby: Lobby, myCharacterId: string } | null> {

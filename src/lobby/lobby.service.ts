@@ -31,22 +31,22 @@ export class LobbyService {
     if (!user) {
       throw new NotFoundException("Usuário não encontrado.");
     }
-
+  
     const character = await this.characterRepository.findOne({
       where: { id: characterId, user: { id: userId } },
       relations: ["user"],
     });
-
     if (!character) {
-      throw new Error;
+      throw new Error("Character não encontrado.");
     }
+  
     const activeLobby = await this.lobbyRepository.findOne({
       where: { owner: { id: userId }, isDeleted: false },
     });
     if (activeLobby) {
       throw new ForbiddenException("Você já possui uma lobby ativa. Exclua a anterior antes de criar uma nova.");
     }
-
+  
     const newLobby = this.lobbyRepository.create({
       title: lobbyToCreate.title,
       minLevel: lobbyToCreate.minLevel,
@@ -58,18 +58,28 @@ export class LobbyService {
       owner: user,
       isDeleted: false,
     });
-
+  
     const savedLobby = await this.lobbyRepository.save(newLobby);
-
+  
     const lobbyPlayer = this.lobbyPlayerRepository.create({
       character: character,
       lobby: savedLobby,
       isLeader: true,
     });
     await this.lobbyPlayerRepository.save(lobbyPlayer);
-    this.lobbyGateway.server.emit('lobbyCreated', savedLobby);
+  
+    // Recarrega a lobby com as relações (players e player.character)
+    const completeLobby = await this.lobbyRepository.findOne({
+      where: { id: savedLobby.id },
+      relations: ['owner', 'players', 'players.character']
+    });
+  
+    // Emite o evento com o objeto completo
+    this.lobbyGateway.server.emit('lobbyCreated', completeLobby);
+  
     return savedLobby;
   }
+  
 
   async updateLobby(lobbyToUpdate: LobbyDto, userId: string, lobbyId: string): Promise<void> {
     const lobby = await this.lobbyRepository.findOne({

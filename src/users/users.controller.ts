@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Post, HttpException, HttpStatus, Req, Param, Put } from '@nestjs/common';
+import { Body, Controller, Get, Post, HttpException, HttpStatus, Req, Param, Put, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserDto } from './user.dto';
+import { AuthGuard } from 'src/auth/auth.guard';
 
 @Controller('users')
+
 export class UsersController {
     constructor(private UsersService: UsersService) { }
 
@@ -33,9 +35,11 @@ export class UsersController {
     }
 
     @Get("me")
-    async getInfo(@Req() req) {
+    @UseGuards(AuthGuard)
+    async getUserInfo(@Req() req) {
         try {
             const userId = req.userId
+            console.log(`USER ID ${userId}`)
             const user = await this.UsersService.getUserInfo(userId);
             if (!user) {
                 throw new HttpException(
@@ -43,10 +47,7 @@ export class UsersController {
                     HttpStatus.NOT_FOUND
                 );
             }
-
             return {
-                message: "Informações do usuário",
-                data: {
                     id: user.id,
                     username: user.username,
                     email: user.email,
@@ -58,8 +59,7 @@ export class UsersController {
                     zip_code: user.zip_code,
                     address: user.address,
                     address_2: user.address_2
-                }
-            }
+            }            
         } catch (error) {
             throw new HttpException(
                 { message: error.message || "Erro ao buscar informações do usuário" },
