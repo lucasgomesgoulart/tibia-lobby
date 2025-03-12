@@ -1,157 +1,143 @@
-import { LobbyGateway } from './gateway';
-import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
-import { Injectable, NotFoundException, ForbiddenException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
-import { Lobby } from "../db/entities/lobby.entity";
-import { User } from "../db/entities/user.entity";
-import { FindAllParameters, LobbyDto } from "../lobby/lobby.dto";
-import { Character } from "src/db/entities/Characters.entity";
+// src/lobbies/lobbies.service.ts
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Character } from 'src/db/entities/Characters.entity';
+import { Lobby } from 'src/db/entities/lobby.entity';
+import { LobbyPlayer } from 'src/db/entities/LobbyPlayer.entity';
+import { User } from 'src/db/entities/user.entity';
+import { Repository, In } from 'typeorm';
+import { JoinLobbyDto } from './joinLobby.dto';
+import { ActivityType } from 'src/db/entities/activityType';
+import { CreateLobbyDto } from './createLobby.dto';
 
 @Injectable()
-export class LobbyService {
+export class LobbiesService {
   constructor(
     @InjectRepository(Lobby)
-    private readonly lobbyRepository: Repository<Lobby>,
+    private lobbyRepository: Repository<Lobby>,
 
     @InjectRepository(LobbyPlayer)
-    private readonly lobbyPlayerRepository: Repository<LobbyPlayer>,
-
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    private lobbyPlayerRepository: Repository<LobbyPlayer>,
 
     @InjectRepository(Character)
-    private readonly characterRepository: Repository<Character>,
+    private characterRepository: Repository<Character>,
 
-    private readonly lobbyGateway: LobbyGateway,
-  ) { }
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
 
-  async createLobby(lobbyToCreate: LobbyDto, userId: string, characterId: string): Promise<Lobby> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+    @InjectRepository(ActivityType)
+    private activityTypeRepository: Repository<ActivityType>,
+  ) {}
+
+  async createLobby(userId: string, createLobbyDto: CreateLobbyDto): Promise<Lobby> {
+    // Recupera o usuário com seus characters
+    const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['characters'] });
     if (!user) {
-      throw new NotFoundException("Usuário não encontrado.");
+      throw new NotFoundException('Usuário não encontrado.');
     }
-  
-    const character = await this.characterRepository.findOne({
-      where: { id: characterId, user: { id: userId } },
-      relations: ["user"],
-    });
-    if (!character) {
-      throw new Error("Character não encontrado.");
+
+    // Verifica se o usuário já possui uma lobby ativa (isDeleted = false)
+    const existingLobby = await this.lobbyRepository.findOne({ where: { owner: { id: userId }, isDeleted: false } });
+    if (existingLobby) {
+      throw new BadRequestException('Você já possui uma lobby ativa.');
     }
-  
-    const activeLobby = await this.lobbyRepository.findOne({
-      where: { owner: { id: userId }, isDeleted: false },
-    });
-    if (activeLobby) {
-      throw new ForbiddenException("Você já possui uma lobby ativa. Exclua a anterior antes de criar uma nova.");
+
+    // Verifica se o character informado pertence ao usuário
+    const character = await this.characterRepository.findOne({ where: { id: createLobbyDto.characterId }, relations: ['user'] });
+    if (!character || character.user.id !== userId) {
+      throw new BadRequestException('Character inválido ou não pertence ao usuário.');
     }
-  
-    const newLobby = this.lobbyRepository.create({
-      title: lobbyToCreate.title,
-      minLevel: lobbyToCreate.minLevel,
-      maxLevel: lobbyToCreate.maxLevel,
-      maxPlayers: lobbyToCreate.maxPlayers,
-      minPlayers: lobbyToCreate.minPlayers,
-      activityType: lobbyToCreate.activityType,
-      discordChannelLink: lobbyToCreate.discordChannelLink,
+
+    // Verifica se algum dos characters do usuário já está em uma lobby ativa
+    const userCharacterIds = user.characters.map(char => char.id);
+    const activeParticipation = await this.lobbyPlayerRepository.createQueryBuilder('lp')
+      .innerJoinAndSelect('lp.lobby', 'lobby')
+      .where('lp.characterId IN (:...ids)', { ids: userCharacterIds })
+      .andWhere('lp.left_at IS NULL')
+      .andWhere('lobby.isDeleted = :active', { active: false })
+      .getOne();
+
+    if (activeParticipation) {
+      throw new BadRequestException('Um dos seus characters já está participando de uma lobby ativa.');
+    }
+
+    // Busca o tipo de atividade usando o ID informado no DTO
+    const activityType = await this.activityTypeRepository.findOne({ where: { id: createLobbyDto.activityTypeId } });
+    if (!activityType) {
+      throw new BadRequestException('Tipo de atividade inválido.');
+    }
+
+    // Cria a lobby usando a relação com a entidade ActivityType
+    const lobby = this.lobbyRepository.create({
+      title: createLobbyDto.title,
+      minLevel: createLobbyDto.minLevel,
+      maxLevel: createLobbyDto.maxLevel,
+      minPlayers: createLobbyDto.minPlayers,
+      maxPlayers: createLobbyDto.maxPlayers,
+      activityType: activityType,  // agora é um objeto da entidade ActivityType
+      discordChannelLink: createLobbyDto.discordChannelLink,
       owner: user,
-      isDeleted: false,
+      ...(createLobbyDto.description && { description: createLobbyDto.description }),
     });
-  
-    const savedLobby = await this.lobbyRepository.save(newLobby);
-  
+
+    const savedLobby = await this.lobbyRepository.save(lobby);
+
+    // Registra o character do usuário como participante e líder da lobby
     const lobbyPlayer = this.lobbyPlayerRepository.create({
-      character: character,
       lobby: savedLobby,
+      character: character,
       isLeader: true,
     });
     await this.lobbyPlayerRepository.save(lobbyPlayer);
-  
-    // Recarrega a lobby com as relações (players e player.character)
-    const completeLobby = await this.lobbyRepository.findOne({
-      where: { id: savedLobby.id },
-      relations: ['owner', 'players', 'players.character']
-    });
-  
-    // Emite o evento com o objeto completo
-    this.lobbyGateway.server.emit('lobbyCreated', completeLobby);
-  
+
     return savedLobby;
   }
-  
 
-  async updateLobby(lobbyToUpdate: LobbyDto, userId: string, lobbyId: string): Promise<void> {
-    const lobby = await this.lobbyRepository.findOne({
-      where: { id: lobbyId },
-      relations: ['owner'],
-    });
+  async joinLobby(userId: string, joinLobbyDto: JoinLobbyDto): Promise<Lobby> {
+    // Recupera o usuário com seus characters
+    const user = await this.userRepository.findOne({ where: { id: userId }, relations: ['characters'] });
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado.');
+    }
+
+    // Verifica se o character informado pertence ao usuário
+    const character = await this.characterRepository.findOne({ where: { id: joinLobbyDto.characterId }, relations: ['user'] });
+    if (!character || character.user.id !== userId) {
+      throw new BadRequestException('Character inválido ou não pertence ao usuário.');
+    }
+
+    // Verifica se algum dos characters do usuário já está em uma lobby ativa
+    const userCharacterIds = user.characters.map(c => c.id);
+    const activeParticipation = await this.lobbyPlayerRepository.createQueryBuilder('lp')
+      .innerJoinAndSelect('lp.lobby', 'lobby')
+      .where('lp.characterId IN (:...ids)', { ids: userCharacterIds })
+      .andWhere('lp.left_at IS NULL')
+      .andWhere('lobby.isDeleted = :active', { active: false })
+      .getOne();
+
+    if (activeParticipation) {
+      throw new BadRequestException('Um dos seus characters já está participando de uma lobby ativa.');
+    }
+
+    // Busca a lobby para ingresso
+    const lobby = await this.lobbyRepository.findOne({ where: { id: joinLobbyDto.lobbyId, isDeleted: false }, relations: ['players'] });
     if (!lobby) {
-      throw new NotFoundException("Lobby não encontrada.");
-    }
-    if (lobby.isDeleted) {
-      throw new NotFoundException("Não é possível editar uma lobby deletada");
-    }
-    if (lobby.owner.id != userId) {
-      throw new ForbiddenException("Você não possui permissão para editar essa lobby.");
+      throw new NotFoundException('Lobby não encontrada.');
     }
 
-    Object.assign(lobby, {
-      title: lobbyToUpdate.title ?? lobby.title,
-      minLevel: lobbyToUpdate.minLevel ?? lobby.minLevel,
-      maxLevel: lobbyToUpdate.maxLevel ?? lobby.maxLevel,
-      maxPlayers: lobbyToUpdate.maxPlayers ?? lobby.maxPlayers,
-      minPlayers: lobbyToUpdate.minPlayers ?? lobby.minPlayers,
-      activityType: lobbyToUpdate.activityType ?? lobby.activityType,
-      discordChannelLink: lobbyToUpdate.discordChannelLink ?? lobby.discordChannelLink,
+    // Verifica se a lobby já atingiu o número máximo de participantes
+    if (lobby.players.length >= lobby.maxPlayers) {
+      throw new BadRequestException('A lobby já está cheia.');
+    }
+
+    // Registra a participação do character na lobby
+    const lobbyPlayer = this.lobbyPlayerRepository.create({
+      lobby: lobby,
+      character: character,
+      isLeader: false,
     });
-    await this.lobbyRepository.save(lobby);
-    this.lobbyGateway.server.to(lobbyId).emit('lobbyUpdated', lobby);
-  }
+    await this.lobbyPlayerRepository.save(lobbyPlayer);
 
-  async getAllLobbies(filters: Partial<FindAllParameters>): Promise<any[]> {
-    const queryBuilder = this.lobbyRepository.createQueryBuilder("lobby")
-      .leftJoinAndSelect("lobby.owner", "owner")
-      // Traz somente os jogadores ativos (left_at IS NULL)
-      .leftJoinAndSelect("lobby.players", "players", "players.left_at IS NULL")
-      .leftJoinAndSelect("players.character", "character")
-      .where("lobby.isDeleted = false");
-
-    if (filters.title) {
-      queryBuilder.andWhere("LOWER(lobby.title) LIKE LOWER(:title)", { title: `%${filters.title}%` });
-    }
-    if (filters.activityType) {
-      queryBuilder.andWhere("lobby.activityType = :activityType", { activityType: filters.activityType });
-    }
-    if (filters.minLevel) {
-      queryBuilder.andWhere("lobby.minLevel >= :minLevel", { minLevel: filters.minLevel });
-    }
-    if (filters.maxLevel) {
-      queryBuilder.andWhere("lobby.maxLevel <= :maxLevel", { maxLevel: filters.maxLevel });
-    }
-    if (filters.ownerId) {
-      queryBuilder.andWhere("lobby.ownerId = :ownerId", { ownerId: filters.ownerId });
-    }
-
-    const lobbies = await queryBuilder.getMany();
-    const filteredLobbies = lobbies.filter(lobby => {
-      const activePlayersCount = lobby.players.length;
-      if (filters.minPlayers !== undefined && activePlayersCount < filters.minPlayers) {
-        return false;
-      }
-      if (filters.maxPlayers !== undefined && activePlayersCount > filters.maxPlayers) {
-        return false;
-      }
-      return true;
-    });
-    return filteredLobbies.map(lobby => {
-      const activePlayers = lobby.players;
-      const vocations = activePlayers.map(player => player.character?.vocation);
-      return {
-        ...lobby,
-        activePlayersCount: activePlayers.length,
-        vocations: vocations,
-      };
-    });
+    return lobby;
   }
 }
