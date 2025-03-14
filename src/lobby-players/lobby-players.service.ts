@@ -1,4 +1,3 @@
-import { LobbyGateway } from './../lobby/gateway';
 import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
 import { Injectable, NotFoundException, HttpException, HttpStatus, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -6,6 +5,7 @@ import { IsNull, Repository } from "typeorm";
 import { Lobby } from "../db/entities/lobby.entity";
 import { User } from "../db/entities/user.entity";
 import { Character } from "../db/entities/Characters.entity";
+import { LobbyGateway } from "src/lobby/gateway";
 
 @Injectable()
 export class LobbyPlayersService {

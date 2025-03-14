@@ -1,47 +1,19 @@
-import { WebSocketGateway, WebSocketServer, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, MessageBody, ConnectedSocket }
-  from '@nestjs/websockets';
+import { WebSocketGateway, WebSocketServer, OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
-})
+@WebSocketGateway({ cors: true })
 export class LobbyGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
-  @WebSocketServer()
-  server: Server;
+  @WebSocketServer() server: Server;
 
   afterInit(server: Server) {
-    
+    console.log('LobbyGateway initialized');
   }
 
-  handleConnection(client: Socket) {
-    
-
+  handleConnection(client: Socket, ...args: any[]) {
+    console.log(`Client connected: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    
-  }
-
-  @SubscribeMessage('joinLobbyRoom')
-  handleJoinLobbyRoom(
-    @MessageBody() lobbyId: string,
-    @ConnectedSocket() client: Socket
-  ) {
-    client.join(lobbyId);
-    
-    return { event: 'joinedLobbyRoom', data: lobbyId };
-  }
-
-
-  @SubscribeMessage('leaveLobbyRoom')
-  handleLeaveLobbyRoom(
-    @MessageBody() lobbyId: string,
-    @ConnectedSocket() client: Socket
-  ) {
-    client.leave(lobbyId);
-    
-    return { event: 'leftLobbyRoom', data: lobbyId };
+    console.log(`Client disconnected: ${client.id}`);
   }
 }

@@ -1,4 +1,3 @@
-// src/lobbies/dto/filter-lobbies.dto.ts
 import { IsOptional, IsString, IsUUID, IsInt, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -7,7 +6,7 @@ export class FilterLobbiesDto {
   @IsString()
   title?: string;
 
-  // Se estiver usando a entidade ActivityType para filtrar, passe o ID
+  // Para filtrar pela atividade, passamos o ID
   @IsOptional()
   @IsUUID()
   activityTypeId?: string;

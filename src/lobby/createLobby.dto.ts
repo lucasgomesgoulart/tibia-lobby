@@ -1,4 +1,3 @@
-// src/lobbies/dto/create-lobby.dto.ts
 import { IsString, IsUUID, IsInt, Min, IsOptional } from 'class-validator';
 
 export class CreateLobbyDto {
@@ -21,7 +20,7 @@ export class CreateLobbyDto {
   @Min(1)
   maxPlayers: number;
 
-  // Recebe o ID da atividade, e não um enum
+  // Como usamos a entidade ActivityType, aqui recebemos o ID
   @IsUUID()
   activityTypeId: string;
 
@@ -32,7 +31,7 @@ export class CreateLobbyDto {
   @IsString()
   description?: string;
 
-  // ID do character que será usado para criar a lobby.
+  // ID do character que será usado para criar a lobby
   @IsUUID()
   characterId: string;
 }
