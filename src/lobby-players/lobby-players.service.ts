@@ -1,6 +1,6 @@
 import { LobbyGateway } from './../lobby/gateway';
 import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
-import { Injectable, NotFoundException, HttpException, HttpStatus } from "@nestjs/common";
+import { Injectable, NotFoundException, HttpException, HttpStatus, BadRequestException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 import { Lobby } from "../db/entities/lobby.entity";
@@ -25,9 +25,11 @@ export class LobbyPlayersService {
     private readonly lobbyGateway: LobbyGateway
   ) {}
 
-  async joinLobby(lobbyId: string, characterId: string, userId: string) {
+  async joinLobby(lobbyId: string, characterId: string, userId: string): Promise<LobbyPlayer> {
     // Verifica se o usuário já possui uma lobby ativa como dono
-    const ownedLobby = await this.lobbyRepository.findOne({ where: { owner: { id: userId }, isDeleted: false } });
+    const ownedLobby = await this.lobbyRepository.findOne({ 
+      where: { owner: { id: userId }, isDeleted: false } 
+    });
     if (ownedLobby) {
       throw new HttpException('Você já possui uma lobby ativa como dono.', HttpStatus.FORBIDDEN);
     }
@@ -56,108 +58,88 @@ export class LobbyPlayersService {
       joined_at: new Date(),
     });
   
-    // Emite um evento para a room específica da lobby indicando que um novo jogador entrou
-    this.lobbyGateway.server.to(lobbyId).emit('playerJoined', newLobbyPlayer);
+    // Após salvar, carregue o registro atualizado com os dados completos da lobby e seus relacionamentos.
+    const updatedLobbyPlayer = await this.lobbyPlayersRepository.findOne({
+      where: { id: newLobbyPlayer.id },
+      relations: ['lobby', 'lobby.players', 'lobby.owner', 'character', 'character.user'],
+    });
   
-    // Opcional: Se você também tiver uma room global para a listagem de lobbies (ex.: "lobbyList"),
-    // emita um evento para atualizar a lista geral
+    if (!updatedLobbyPlayer) {
+      throw new NotFoundException('Erro ao carregar os dados atualizados da lobby.');
+    }
+  
+    // Emite eventos para a sala da lobby e a room global para atualizar a listagem
+    this.lobbyGateway.server.to(lobbyId).emit('playerJoined', updatedLobbyPlayer);
     this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
       lobbyId,
       action: 'playerJoined',
-      newLobbyPlayer,
+      newLobbyPlayer: updatedLobbyPlayer,
     });
   
-    return newLobbyPlayer;
+    return updatedLobbyPlayer;
   }
 
-  async leaveOrDeleteLobby(userId: string): Promise<void> {
+  async exitLobby(userId: string): Promise<void> {
+    // Busca o registro de LobbyPlayer ativo para o usuário
     const player = await this.lobbyPlayersRepository.findOne({
-      where: { character: { user: { id: userId } }, left_at: IsNull() },
-      relations: ['lobby', 'lobby.owner'],
+      where: { character: { user: { id: userId } }, left_at: null },
+      relations: ['lobby', 'character'],
     });
-  
+    
     if (!player) {
       throw new NotFoundException("Você não está em nenhuma lobby ativa.");
     }
-  
-    const lobby = player.lobby;
-    if (!lobby) {
-      throw new NotFoundException("Lobby não encontrada.");
+    
+    // Se o usuário for owner, a saída deve ser feita pelo método de exclusão, não por esse endpoint.
+    if (player.lobby.owner.id === userId) {
+      throw new BadRequestException("O dono da lobby não pode sair usando esse endpoint. Utilize a opção de excluir a lobby.");
     }
-  
-    if (lobby.owner.id === userId) {
-      // Se o dono está excluindo a lobby, marca todos os jogadores como saídos
-      await this.lobbyPlayersRepository
-        .createQueryBuilder()
-        .update()
-        .set({ left_at: () => "CURRENT_TIMESTAMP" })
-        .where("lobbyId = :lobbyId", { lobbyId: lobby.id })
-        .andWhere("left_at IS NULL")
-        .execute();
-  
-      lobby.isDeleted = true;
-      await this.lobbyRepository.save(lobby);
-  
-      // Remove todos os sockets que estão na room da lobby
-      this.lobbyGateway.server.in(lobby.id).socketsLeave(lobby.id);
-      // Emite evento global para atualizar a listagem
-      this.lobbyGateway.server.emit('lobbyDeleted', { lobbyId: lobby.id });
-    } else {
-      // Se não for o dono, apenas marca o jogador como saiu
-      player.left_at = new Date();
-      await this.lobbyPlayersRepository.save(player);
-  
-      // Aqui, se você tiver um mapeamento de socket por usuário, remova somente o socket do usuário que saiu.
-      // Caso contrário, você pode emitir um evento para que o cliente se desconecte da room.
-      this.lobbyGateway.server.to(lobby.id).emit('playerLeft', { characterId: player.character.id });
-      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
-        lobbyId: lobby.id,
-        action: 'playerLeft',
-        characterId: player.character.id,
-      });
-    }
-  }
-  
-  async kickPlayer(lobbyId: string, targetCharacterId: string, userId: string): Promise<void> {
-    const lobby = await this.lobbyRepository.findOne({ where: { id: lobbyId }, relations: ['owner'] });
-    if (lobby.owner.id !== userId) {
-      throw new HttpException("Apenas o dono da lobby pode expulsar jogadores.", HttpStatus.FORBIDDEN);
-    }
-    const player = await this.lobbyPlayersRepository.findOne({
-      where: { lobby: { id: lobbyId }, character: { id: targetCharacterId }, left_at: IsNull() },
-    });
-    if (!player) {
-      throw new HttpException("O personagem não está nesta lobby.", HttpStatus.NOT_FOUND);
-    }
-    // Marca o jogador como expulso
+    
+    // Marca o jogador como saiu
     player.left_at = new Date();
     await this.lobbyPlayersRepository.save(player);
-  
-    // Emite um evento para a room da lobby informando que o jogador foi expulso
-    this.lobbyGateway.server.to(lobbyId).emit('playerKicked', { targetCharacterId });
-    // Atualiza a room global de lobbies
-    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
-      lobbyId,
-      action: 'playerKicked',
-      targetCharacterId,
+    
+    // Emite eventos para notificar a saída do jogador
+    this.lobbyGateway.server.to(player.lobby.id).emit('playerLeft', { characterId: player.character.id });
+    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId: player.lobby.id, action: 'playerLeft', characterId: player.character.id });
+  }
+
+  async deleteLobby(userId: string): Promise<void> {
+    // Busca o registro de LobbyPlayer ativo para o owner
+    const player = await this.lobbyPlayersRepository.findOne({
+      where: { character: { user: { id: userId } }, left_at: null },
+      relations: ['lobby', 'lobby.owner'],
     });
-  
-    // Após 3 minutos, permite que o jogador retorne (kick expira)
-    setTimeout(async () => {
-      player.left_at = null;
-      await this.lobbyPlayersRepository.save(player);
-  
-      this.lobbyGateway.server.to(lobbyId).emit('kickExpired', { targetCharacterId });
-      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
-        lobbyId,
-        action: 'kickExpired',
-        targetCharacterId,
-      });
-    }, 180000);
+    
+    if (!player) {
+      throw new NotFoundException("Você não está em nenhuma lobby ativa.");
+    }
+    
+    const lobby = player.lobby;
+    
+    if (lobby.owner.id !== userId) {
+      throw new BadRequestException("Apenas o dono da lobby pode excluí-la.");
+    }
+    
+    // Marca todos os jogadores ativos na lobby como tendo saído
+    await this.lobbyPlayersRepository
+      .createQueryBuilder()
+      .update()
+      .set({ left_at: () => "CURRENT_TIMESTAMP" })
+      .where("lobby.id = :lobbyId", { lobbyId: lobby.id })
+      .andWhere("left_at IS NULL")
+      .execute();
+    
+    // Marca a lobby como deletada
+    lobby.isDeleted = true;
+    await this.lobbyRepository.save(lobby);
+    
+    // Emite eventos via gateway para notificar a exclusão da lobby
+    this.lobbyGateway.server.to(lobby.id).emit('lobbyDeleted', { lobbyId: lobby.id });
+    // Opcional: Notifica a lista global de lobbies
+    this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', { lobbyId: lobby.id, action: 'deleted' });
   }
   
-  
-
   async getUserLobbyData(userId: string): Promise<{ lobby: Lobby, myCharacterId: string } | null> {
     
     const playerInLobby = await this.lobbyPlayersRepository.findOne({

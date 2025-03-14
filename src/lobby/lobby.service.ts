@@ -31,8 +31,11 @@ export class LobbiesService {
 
   async findLobbies(filter: FilterLobbiesDto): Promise<Lobby[]> {
     const query = this.lobbyRepository.createQueryBuilder('lobby')
+      .leftJoinAndSelect('lobby.players', 'players')
+      .leftJoinAndSelect('players.character', 'character')
+      .leftJoinAndSelect('lobby.owner', 'owner')
       .where('lobby.isDeleted = false');
-
+  
     if (filter.title) {
       query.andWhere('lobby.title ILIKE :title', { title: `%${filter.title}%` });
     }
@@ -51,9 +54,10 @@ export class LobbiesService {
     if (filter.take) {
       query.take(filter.take);
     }
-
+  
     return query.getMany();
   }
+  
 
   async getUserLobbyData(userId: string): Promise<{ lobby: Lobby; myCharacterId: string } | null> {
     // Busca um LobbyPlayer ativo para algum character do usuário
