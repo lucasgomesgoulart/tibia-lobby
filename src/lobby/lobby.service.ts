@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ActivityType } from 'src/db/entities/activityType';
+import { Character } from 'src/db/entities/Characters.entity';
 import { Lobby } from 'src/db/entities/lobby.entity';
 import { LobbyPlayer } from 'src/db/entities/LobbyPlayer.entity';
 import { User } from 'src/db/entities/user.entity';
-import { Character } from 'src/db/entities/Characters.entity';
-import { ActivityType } from 'src/db/entities/activityType';
-import { Repository, In } from 'typeorm';
+import { Repository } from 'typeorm';
 import { FilterLobbiesDto } from './filter-lobbies.dto';
 import { CreateLobbyDto } from './createLobby.dto';
 
