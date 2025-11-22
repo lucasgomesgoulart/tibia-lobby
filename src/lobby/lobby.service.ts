@@ -7,22 +7,21 @@ import { Lobby } from "../db/entities/lobby.entity";
 import { User } from "../db/entities/user.entity";
 import { FindAllParameters, LobbyDto } from "../lobby/lobby.dto";
 import { Character } from "src/db/entities/Characters.entity";
+import { ActivityType } from "src/db/entities/activityType";
 
 @Injectable()
 export class LobbyService {
   constructor(
     @InjectRepository(Lobby)
     private readonly lobbyRepository: Repository<Lobby>,
-
     @InjectRepository(LobbyPlayer)
     private readonly lobbyPlayerRepository: Repository<LobbyPlayer>,
-
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-
     @InjectRepository(Character)
     private readonly characterRepository: Repository<Character>,
-
+    @InjectRepository(ActivityType)
+    private readonly activityTypeRepository: Repository<ActivityType>,
     private readonly lobbyGateway: LobbyGateway,
   ) { }
 
@@ -47,13 +46,18 @@ export class LobbyService {
       throw new ForbiddenException("Você já possui uma lobby ativa. Exclua a anterior antes de criar uma nova.");
     }
   
+    const activity = await this.activityTypeRepository.findOne({ where: { id: lobbyToCreate.activityTypeId } });
+    if (!activity) {
+      throw new NotFoundException('Tipo de atividade não encontrado.');
+    }
+
     const newLobby = this.lobbyRepository.create({
       title: lobbyToCreate.title,
       minLevel: lobbyToCreate.minLevel,
       maxLevel: lobbyToCreate.maxLevel,
       maxPlayers: lobbyToCreate.maxPlayers,
       minPlayers: lobbyToCreate.minPlayers,
-      activityType: lobbyToCreate.activityType,
+      activityType: activity,
       discordChannelLink: lobbyToCreate.discordChannelLink,
       owner: user,
       isDeleted: false,
@@ -81,7 +85,7 @@ export class LobbyService {
   }
   
 
-  async updateLobby(lobbyToUpdate: LobbyDto, userId: string, lobbyId: string): Promise<void> {
+  async updateLobby(lobbyToUpdate: LobbyDto, userId: string, lobbyId: string): Promise<Lobby> {
     const lobby = await this.lobbyRepository.findOne({
       where: { id: lobbyId },
       relations: ['owner'],
@@ -96,22 +100,32 @@ export class LobbyService {
       throw new ForbiddenException("Você não possui permissão para editar essa lobby.");
     }
 
+    const activity = lobbyToUpdate.activityTypeId
+      ? await this.activityTypeRepository.findOne({ where: { id: lobbyToUpdate.activityTypeId } })
+      : undefined;
+
     Object.assign(lobby, {
       title: lobbyToUpdate.title ?? lobby.title,
       minLevel: lobbyToUpdate.minLevel ?? lobby.minLevel,
       maxLevel: lobbyToUpdate.maxLevel ?? lobby.maxLevel,
       maxPlayers: lobbyToUpdate.maxPlayers ?? lobby.maxPlayers,
       minPlayers: lobbyToUpdate.minPlayers ?? lobby.minPlayers,
-      activityType: lobbyToUpdate.activityType ?? lobby.activityType,
+      activityType: activity ?? lobby.activityType,
       discordChannelLink: lobbyToUpdate.discordChannelLink ?? lobby.discordChannelLink,
     });
     await this.lobbyRepository.save(lobby);
     this.lobbyGateway.server.to(lobbyId).emit('lobbyUpdated', lobby);
+    return lobby;
   }
 
-  async getAllLobbies(filters: Partial<FindAllParameters>): Promise<any[]> {
+  async getAllLobbies(
+    filters: Partial<FindAllParameters>,
+    skip: number = 0,
+    take: number = 10
+  ): Promise<[any[], number]> {
     const queryBuilder = this.lobbyRepository.createQueryBuilder("lobby")
       .leftJoinAndSelect("lobby.owner", "owner")
+      .leftJoinAndSelect("lobby.activityType", "activityType")
       // Traz somente os jogadores ativos (left_at IS NULL)
       .leftJoinAndSelect("lobby.players", "players", "players.left_at IS NULL")
       .leftJoinAndSelect("players.character", "character")
@@ -120,8 +134,8 @@ export class LobbyService {
     if (filters.title) {
       queryBuilder.andWhere("LOWER(lobby.title) LIKE LOWER(:title)", { title: `%${filters.title}%` });
     }
-    if (filters.activityType) {
-      queryBuilder.andWhere("lobby.activityType = :activityType", { activityType: filters.activityType });
+    if ((filters as any).activityTypeId) {
+      queryBuilder.andWhere("activityType.id = :activityTypeId", { activityTypeId: (filters as any).activityTypeId });
     }
     if (filters.minLevel) {
       queryBuilder.andWhere("lobby.minLevel >= :minLevel", { minLevel: filters.minLevel });
@@ -133,7 +147,11 @@ export class LobbyService {
       queryBuilder.andWhere("lobby.ownerId = :ownerId", { ownerId: filters.ownerId });
     }
 
-    const lobbies = await queryBuilder.getMany();
+    // Paginação
+    queryBuilder.skip(skip).take(take);
+
+    const [lobbies, total] = await queryBuilder.getManyAndCount();
+    
     const filteredLobbies = lobbies.filter(lobby => {
       const activePlayersCount = lobby.players.length;
       if (filters.minPlayers !== undefined && activePlayersCount < filters.minPlayers) {
@@ -144,7 +162,8 @@ export class LobbyService {
       }
       return true;
     });
-    return filteredLobbies.map(lobby => {
+    
+    const mappedLobbies = filteredLobbies.map(lobby => {
       const activePlayers = lobby.players;
       const vocations = activePlayers.map(player => player.character?.vocation);
       return {
@@ -153,5 +172,7 @@ export class LobbyService {
         vocations: vocations,
       };
     });
+
+    return [mappedLobbies, total];
   }
 }
