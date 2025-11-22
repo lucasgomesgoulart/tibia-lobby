@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get,Param, Post, Req, UseGuards } from "@nestjs/common";
 import { AuthGuard } from "src/auth/auth.guard";
 import { LobbyPlayersService } from "./lobby-players.service";
+import { plainToClass } from 'class-transformer';
+import { LobbyPlayerJoinResponseDto, UserLobbyDataResponseDto } from './dto/lobby-player-response.dto';
 
 @UseGuards(AuthGuard)
 @Controller("lobby-players")
@@ -13,7 +15,7 @@ export class LobbyPlayersController {
   async joinLobby(@Param("lobbyId") lobbyId: string, @Param("characterId") characterId: string, @Req() req) {
     const userId = req.userId;
     const lobbyPlayer = await this.lobbyPlayersService.joinLobby(lobbyId, characterId, userId);
-    return { message: "Entrou na lobby com sucesso.", data: lobbyPlayer };
+    return plainToClass(LobbyPlayerJoinResponseDto, lobbyPlayer, { excludeExtraneousValues: true });
   }
 
   @Delete("my-lobby")
@@ -27,9 +29,11 @@ export class LobbyPlayersController {
   async checkLobby(@Req() req) {
     const userId = req.userId;
     const lobbyData = await this.lobbyPlayersService.getUserLobbyData(userId);
+    
     if (!lobbyData) {
-      return { message: "Nenhuma lobby ativa encontrada.", data: null };
+      return null;
     }
-    return { message: "Lobby carregada com sucesso.", data: lobbyData, userId };
+    
+    return plainToClass(UserLobbyDataResponseDto, lobbyData, { excludeExtraneousValues: true });
   }
 }

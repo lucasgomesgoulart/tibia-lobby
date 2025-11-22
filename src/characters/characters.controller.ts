@@ -2,6 +2,8 @@ import { Controller, Post, Get, Body, UseGuards, Req } from "@nestjs/common";
 import { CharacterDto } from "./character.dto";
 import { AuthGuard } from "src/auth/auth.guard";
 import { CharacterService } from "./characters.service";
+import { plainToClass } from 'class-transformer';
+import { CharacterResponseDto } from './dto/character-response.dto';
 
 @UseGuards(AuthGuard)
 @Controller("characters")
@@ -10,15 +12,17 @@ export class CharacterController {
 
     @Post()
     async createCharacter(@Body() character: CharacterDto, @Req() req) {
-        const userId = req.userId
+        const userId = req.userId;
         const newCharacter = await this.characterService.createCharacter(character, userId);
-        return { message: "Personagem cadastrado com sucesso.", data: newCharacter };
+        return plainToClass(CharacterResponseDto, newCharacter, { excludeExtraneousValues: true });
     }
 
     @Get()
     async getUserCharacters(@Req() req) {
-        const userId = req.userId
+        const userId = req.userId;
         const characters = await this.characterService.getUserCharacters(userId);
-        return { data: characters };
+        return characters.map(character => 
+            plainToClass(CharacterResponseDto, character, { excludeExtraneousValues: true })
+        );
     }
 }

@@ -1,5 +1,7 @@
 import { Controller, Get, Post, Body } from "@nestjs/common";
 import { WorldsService } from "./worlds.service";
+import { plainToClass } from 'class-transformer';
+import { WorldResponseDto } from './dto/world-response.dto';
 
 @Controller("worlds")
 export class WorldsController {
@@ -8,12 +10,14 @@ export class WorldsController {
     @Get("/global")
     async getGlobalWorlds() {
         const worlds = await this.worldsService.getGlobalWorlds();
-        return { message: "Mundos do Tibia Global carregados.", data: worlds };
+        return worlds.map(world => 
+            plainToClass(WorldResponseDto, world, { excludeExtraneousValues: true })
+        );
     }
 
     @Post()
     async createWorld(@Body() body: { name: string }) {
         const newWorld = await this.worldsService.createWorld(body.name, true);
-        return { message: "Mundo cadastrado com sucesso.", data: newWorld };
+        return plainToClass(WorldResponseDto, newWorld, { excludeExtraneousValues: true });
     }
 }

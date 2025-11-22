@@ -1,5 +1,8 @@
 import { Controller, Get, Post, Body, Param } from "@nestjs/common";
 import { OtServersService } from "./otservers.service";
+import { plainToClass } from 'class-transformer';
+import { OtServerResponseDto } from './dto/otserver-response.dto';
+import { WorldResponseDto } from '../worlds/dto/world-response.dto';
 
 @Controller("otservers")
 export class OtServersController {
@@ -8,18 +11,22 @@ export class OtServersController {
     @Get()
     async getAllOtServers() {
         const otServers = await this.otServersService.getAllOtServers();
-        return { message: "Lista de OTServers carregada.", data: otServers };
+        return otServers.map(otServer => 
+            plainToClass(OtServerResponseDto, otServer, { excludeExtraneousValues: true })
+        );
     }
 
     @Post()
     async createOtServer(@Body() body: { name: string; worldNames: string[] }) {
         const newOtServer = await this.otServersService.createOtServer(body.name, body.worldNames);
-        return { message: "OTServer cadastrado com sucesso.", data: newOtServer };
+        return plainToClass(OtServerResponseDto, newOtServer, { excludeExtraneousValues: true });
     }
 
     @Get("/:id/worlds")
     async getWorldsByOtServer(@Param("id") otServerId: string) {
         const worlds = await this.otServersService.getWorldsByOtServer(otServerId);
-        return { message: `Mundos do OTServer carregados.`, data: worlds };
+        return worlds.map(world => 
+            plainToClass(WorldResponseDto, world, { excludeExtraneousValues: true })
+        );
     }
 }
