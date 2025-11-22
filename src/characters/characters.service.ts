@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from "@nestjs/common";
+import axios from "axios";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Character } from "../db/entities/Characters.entity";
@@ -106,32 +107,29 @@ export class CharacterService {
     
     async fetchTibiaCharacterData(name: string) {
         try {
-            const response = await fetch(`https://api.tibiadata.com/v4/character/${encodeURIComponent(name)}`);
-     
-    
-            if (!response.ok) {
-                throw new Error(`Erro na API TibiaData: ${response.statusText}`);
-            }
-    
-            const data = await response.json();
-          
-            // 🚀 Ajustando o acesso correto aos dados
+            const trimmed = name?.trim();
+            if (!trimmed) return null;
+
+            const response = await axios.get(
+                `https://api.tibiadata.com/v4/character/${encodeURIComponent(trimmed)}`,
+                { timeout: 10000 }
+            );
+
+            const data = response.data;
             if (!data || !data.character || !data.character.character) {
-                console.error("Erro: Estrutura da resposta da API TibiaData mudou ou personagem não encontrado.", data);
+                console.error("Estrutura inesperada da TibiaData ou personagem inexistente.", data);
                 return null;
             }
-    
-            const tibiaCharacter = data.character.character; // 🔹 Correção AQUI!
-            
-         
+
+            const tibiaCharacter = data.character.character;
             return {
                 name: tibiaCharacter.name,
                 world: tibiaCharacter.world,
                 vocation: tibiaCharacter.vocation,
                 level: tibiaCharacter.level,
             };
-        } catch (error) {
-            console.error("Erro ao buscar personagem na API TibiaData:", error);
+        } catch (error: any) {
+            console.error("Erro ao buscar personagem na API TibiaData:", error?.message || error);
             return null;
         }
     }

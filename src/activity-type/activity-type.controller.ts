@@ -1,6 +1,5 @@
-import { Controller, Get, UseGuards } from "@nestjs/common";
+import { Controller, Get } from "@nestjs/common";
 import { ActivityTypeService } from "./activity-type.service";
-import { AuthGuard } from "src/auth/auth.guard";
 
 @Controller('activeType')
 export class ActivityTypeController {
@@ -9,6 +8,6 @@ export class ActivityTypeController {
     @Get()
     async getAllActivityTypes() {
         const types = await this.activityTypeService.findAll();
-        return types.map(type => type.name); 
+        return types.map(t => ({ id: t.id, name: t.name }));
     }
 }

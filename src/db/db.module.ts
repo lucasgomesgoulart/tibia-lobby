@@ -13,7 +13,8 @@ import * as path from 'path';
             database: configService.get<string>('DB_DATABASE'),
             entities: [path.join(__dirname, '../**/*.entity{.ts,.js}')],
             migrations: [path.join(__dirname, '../**/*.migrations{.ts,.js}')],
-            synchronize: true,
+            // Permite desligar synchronize em produção. Use DB_SYNC=true para habilitar.
+            synchronize: configService.get<string>('DB_SYNC') === 'true',
             autoLoadEntities: true
         }),
         inject: [ConfigService],

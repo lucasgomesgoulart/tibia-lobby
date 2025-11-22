@@ -1,6 +1,7 @@
 import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
-import { authResponseDto } from './auth.dto';
-import { AuthService } from './auth.service'
+import { AuthResponseDto } from './auth.dto';
+import { AuthService } from './auth.service';
+import { plainToClass } from 'class-transformer';
 
 @Controller('auth')
 export class AuthController {
@@ -12,11 +13,10 @@ export class AuthController {
     async signIn(
         @Body('username') username: string,
         @Body('password') password: string,
-    ): Promise<authResponseDto> {
-        return await this.authService.signIn(username, password)
+    ): Promise<AuthResponseDto> {
+        const result = await this.authService.signIn(username, password);
+        return plainToClass(AuthResponseDto, result, { excludeExtraneousValues: true });
     }
-
-
 }
 
 

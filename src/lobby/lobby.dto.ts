@@ -1,5 +1,4 @@
-import { IsString, IsUUID, IsNumber, Min, IsEnum, IsOptional } from "class-validator";
-import { ActivityType } from "../db/entities/lobby.entity"; // Certifique-se que o caminho está correto
+import { IsString, IsUUID, IsNumber, Min, IsOptional } from "class-validator";
 
 export class LobbyDto {
     @IsUUID()
@@ -23,8 +22,8 @@ export class LobbyDto {
     @Min(2)
     minPlayers: number;
 
-    @IsEnum(ActivityType)
-    activityType: ActivityType;
+    @IsUUID()
+    activityTypeId: string;
 
     @IsString()
     discordChannelLink: string;

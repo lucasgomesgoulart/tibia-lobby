@@ -1,0 +1,29 @@
+{
+  "servers": [
+    { "name": "Aurera Global", "worlds": ["Aurera-Global"] },
+    { "name": "Solarian", "worlds": ["Solarian-Main"] },
+    { "name": "Tormentum", "worlds": ["Tormentum-Main"] },
+    { "name": "Belaria", "worlds": ["Belaria-Main"] },
+    { "name": "Elysian", "worlds": ["Elysian-Main"] },
+    { "name": "Fast Baiak", "worlds": ["Fast-Baiak-Main"] },
+    { "name": "Mystian", "worlds": ["Mystian-Main"] },
+    { "name": "Baiak Ilusion", "worlds": ["Baiak-Ilusion"] },
+    { "name": "Lunarian", "worlds": ["Lunarian-Main"] },
+    { "name": "Demolidores", "worlds": ["Demolidores-Main"] },
+    { "name": "Exordion", "worlds": ["Exordion-Main"] },
+    { "name": "Miracle74", "worlds": ["Miracle74-Main"] },
+    { "name": "Underwar", "worlds": ["Underwar-Main"] },
+    { "name": "Vesperia", "worlds": ["Vesperia-Main"] },
+    { "name": "Bellum", "worlds": ["Bellum-Main"] },
+    { "name": "Auroria", "worlds": ["Auroria-Main"] },
+    { "name": "Spectrum", "worlds": ["Spectrum-Main"] },
+    { "name": "Kaldrox", "worlds": ["Kaldrox-Main"] },
+    { "name": "Limbo", "worlds": ["Limbo-Main"] },
+    { "name": "Baltrium", "worlds": ["Baltrium-Main"] },
+    { "name": "Calmera", "worlds": ["Calmera-Main"] },
+    { "name": "FuriaOT", "worlds": ["FuriaOT-Main"] },
+    { "name": "MazeOT", "worlds": ["MazeOT-Main"] },
+    { "name": "PaulistinhaOT", "worlds": ["Paulistinha-Main"] },
+    { "name": "HorusBR", "worlds": ["HorusBR-Main"] }
+  ]
+}

@@ -1,17 +1,10 @@
 import { 
-    Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn 
+    Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, JoinColumn 
 } from "typeorm";
-import { User } from "./User.entity"
+import { User } from "./User.entity";
 import { LobbyPlayer } from "./LobbyPlayer.entity";
+import { ActivityType } from "./activityType";
 
-export enum ActivityType {
-    PVP = "PVP",
-    HUNT = "HUNT",
-    QUEST = "QUEST",
-    BOSS = "BOSS",
-    WAR = "WAR",
-    EVENT = "EVENT",
-}
 
 @Entity("lobbies")
 export class Lobby {
@@ -33,11 +26,9 @@ export class Lobby {
     @Column()
     minPlayers: number;
 
-    @Column({
-        type: "enum",
-        enum: ["PVP", "HUNT", "QUEST", "BOSS", "WAR", "EVENT"], 
-    })
-    activityType: string;
+    @ManyToOne(() => ActivityType, { nullable: true })
+    @JoinColumn({ name: 'activityTypeId' })
+    activityType?: ActivityType;
 
     @ManyToOne(() => User, (user) => user.lobbiesOwned)
     owner?: User;
