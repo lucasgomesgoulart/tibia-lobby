@@ -2,10 +2,11 @@ import { LobbyGateway } from './../lobby/gateway';
 import { LobbyPlayer } from "src/db/entities/LobbyPlayer.entity";
 import { Injectable, NotFoundException, HttpException, HttpStatus } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
+import { IsNull, Repository, LessThan, MoreThan } from "typeorm";
 import { Lobby } from "../db/entities/lobby.entity";
 import { User } from "../db/entities/user.entity";
 import { Character } from "../db/entities/Characters.entity";
+import { Cron } from "@nestjs/schedule";
 
 @Injectable()
 export class LobbyPlayersService {
@@ -47,6 +48,91 @@ export class LobbyPlayersService {
     });
     if (characterInLobby) {
       throw new HttpException('Este personagem já está em uma lobby ativa.', HttpStatus.FORBIDDEN);
+    }
+
+    // ✅ CORREÇÃO 1: Verifica se foi kickado desta lobby e ainda está no cooldown
+    const kickedFromThisLobby = await this.lobbyPlayersRepository.findOne({
+      where: {
+        lobby: { id: lobbyId },
+        character: { id: characterId },
+        kick_expires_at: MoreThan(new Date())
+      }
+    });
+
+    if (kickedFromThisLobby) {
+      const remainingSeconds = Math.ceil(
+        (kickedFromThisLobby.kick_expires_at.getTime() - Date.now()) / 1000
+      );
+      throw new HttpException(
+        `Você foi expulso desta lobby. Tente novamente em ${remainingSeconds}s.`,
+        HttpStatus.FORBIDDEN
+      );
+    }
+
+    // ✅ CORREÇÃO 2: Verifica se character já tem registro nesta lobby (mesmo com left_at)
+    const existingEntry = await this.lobbyPlayersRepository.findOne({
+      where: {
+        lobby: { id: lobbyId },
+        character: { id: characterId }
+      }
+    });
+
+    // Se já existe entrada anterior, reativa ao invés de criar duplicada
+    if (existingEntry) {
+      if (!existingEntry.left_at && !existingEntry.kick_expires_at) {
+        throw new HttpException('Você já está nesta lobby.', HttpStatus.BAD_REQUEST);
+      }
+      
+      // Reativa entrada existente
+      existingEntry.left_at = null;
+      existingEntry.joined_at = new Date();
+      existingEntry.kick_expires_at = null;
+      existingEntry.kick_reason = null;
+      const reactivatedPlayer = await this.lobbyPlayersRepository.save(existingEntry);
+
+      // Emite eventos
+      this.lobbyGateway.server.to(lobbyId).emit('playerJoined', reactivatedPlayer);
+      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
+        lobbyId,
+        action: 'playerJoined',
+        newLobbyPlayer: reactivatedPlayer,
+      });
+
+      return reactivatedPlayer;
+    }
+
+    // ✅ CORREÇÃO 3: Validar capacidade da lobby
+    const lobby = await this.lobbyRepository.findOne({
+      where: { id: lobbyId },
+      relations: ['players']
+    });
+
+    if (!lobby) {
+      throw new NotFoundException('Lobby não encontrada.');
+    }
+
+    const activePlayers = lobby.players.filter(p => !p.left_at).length;
+    if (activePlayers >= lobby.maxPlayers) {
+      throw new HttpException(
+        `Esta lobby está cheia (${activePlayers}/${lobby.maxPlayers}).`,
+        HttpStatus.FORBIDDEN
+      );
+    }
+
+    // ✅ CORREÇÃO 4: Validar nível do character
+    const character = await this.characterRepository.findOne({
+      where: { id: characterId }
+    });
+
+    if (!character) {
+      throw new NotFoundException('Personagem não encontrado.');
+    }
+
+    if (character.level < lobby.minLevel || character.level > lobby.maxLevel) {
+      throw new HttpException(
+        `Seu nível ${character.level} não atende os requisitos desta lobby (nível ${lobby.minLevel}-${lobby.maxLevel}).`,
+        HttpStatus.FORBIDDEN
+      );
     }
   
     // Salva o registro de entrada na lobby
@@ -105,6 +191,7 @@ export class LobbyPlayersService {
     } else {
       // Se não for o dono, apenas marca o jogador como saiu
       player.left_at = new Date();
+      player.kick_reason = 'left_voluntarily';
       await this.lobbyPlayersRepository.save(player);
   
       // Aqui, se você tiver um mapeamento de socket por usuário, remova somente o socket do usuário que saiu.
@@ -129,8 +216,10 @@ export class LobbyPlayersService {
     if (!player) {
       throw new HttpException("O personagem não está nesta lobby.", HttpStatus.NOT_FOUND);
     }
-    // Marca o jogador como expulso
+    // Marca o jogador como expulso e define quando o kick expira (3 minutos)
     player.left_at = new Date();
+    player.kick_expires_at = new Date(Date.now() + 180000); // +3 minutos
+    player.kick_reason = 'kicked_by_owner';
     await this.lobbyPlayersRepository.save(player);
   
     // Emite um evento para a room da lobby informando que o jogador foi expulso
@@ -141,19 +230,6 @@ export class LobbyPlayersService {
       action: 'playerKicked',
       targetCharacterId,
     });
-  
-    // Após 3 minutos, permite que o jogador retorne (kick expira)
-    setTimeout(async () => {
-      player.left_at = null;
-      await this.lobbyPlayersRepository.save(player);
-  
-      this.lobbyGateway.server.to(lobbyId).emit('kickExpired', { targetCharacterId });
-      this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
-        lobbyId,
-        action: 'kickExpired',
-        targetCharacterId,
-      });
-    }, 180000);
   }
   
   
@@ -197,5 +273,40 @@ export class LobbyPlayersService {
       return { lobby: ownedLobby, myCharacterId };
     }
     return null;
+  }
+
+  /**
+   * Cron job que executa a cada 1 minuto para limpar kicks expirados
+   * Restaura left_at e kick_expires_at quando o tempo de cooldown expira
+   */
+  @Cron('* * * * *') // Executa a cada minuto
+  async cleanExpiredKicks() {
+    const expiredKicks = await this.lobbyPlayersRepository.find({
+      where: { 
+        kick_expires_at: LessThan(new Date())
+      },
+      relations: ['lobby', 'character']
+    });
+
+    if (expiredKicks.length > 0) {
+      for (const player of expiredKicks) {
+        player.left_at = null;
+        player.kick_expires_at = null;
+        player.kick_reason = null;
+        await this.lobbyPlayersRepository.save(player);
+
+        // Emite evento informando que o kick expirou
+        this.lobbyGateway.server.to(player.lobby.id).emit('kickExpired', { 
+          targetCharacterId: player.character.id 
+        });
+        this.lobbyGateway.server.to('lobbyList').emit('lobbyUpdated', {
+          lobbyId: player.lobby.id,
+          action: 'kickExpired',
+          targetCharacterId: player.character.id,
+        });
+      }
+
+      console.log(`[Cron] ${expiredKicks.length} kicks expirados foram limpos`);
+    }
   }
 }

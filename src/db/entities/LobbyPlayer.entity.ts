@@ -19,6 +19,12 @@ export class LobbyPlayer {
     @Column({default: null })
     left_at: Date;
 
+    @Column({ nullable: true })
+    kick_expires_at: Date;
+
+    @Column({ nullable: true })
+    kick_reason: string;
+
     @Column({default: false})
     isLeader: boolean;
 }

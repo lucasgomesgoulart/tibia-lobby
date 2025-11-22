@@ -11,9 +11,24 @@ import { CharactersModule } from './characters/characters.module';
 import { WorldsModule } from './worlds/worlds.module';
 import { OtserversModule } from './otservers/otservers.module';
 import {ActivityTypeModule } from './activity-type/activity-type.module'
+import { SeedModule } from './seed/seed.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
-  imports: [LobbyModule, UsersModule, AuthModule, ConfigModule.forRoot({ isGlobal: true }), DbModule, ActivityTypeModule,LobbyPlayersModule, CharactersModule, WorldsModule, OtserversModule, ],
+  imports: [
+    ActivityTypeModule,
+    LobbyModule,
+    UsersModule,
+    AuthModule,
+    ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(), // Habilita cron jobs
+    DbModule,
+    LobbyPlayersModule,
+    CharactersModule,
+    WorldsModule,
+    OtserversModule,
+    SeedModule
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
