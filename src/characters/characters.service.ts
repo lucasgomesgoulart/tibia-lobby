@@ -142,4 +142,17 @@ export class CharacterService {
             relations: ["world", "otServer"],
         });
     }
+
+    async deleteCharacter(characterId: string, userId: string): Promise<void> {
+        const character = await this.characterRepository.findOne({
+            where: { id: characterId },
+            relations: ['user'],
+        });
+
+        if (!character || character.user.id !== userId) {
+            throw new NotFoundException('Personagem não encontrado.');
+        }
+
+        await this.characterRepository.remove(character);
+    }
 }

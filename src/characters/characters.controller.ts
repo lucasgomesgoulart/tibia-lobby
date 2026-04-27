@@ -4,6 +4,7 @@ import { AuthGuard } from "src/auth/auth.guard";
 import { CharacterService } from "./characters.service";
 import { plainToClass } from 'class-transformer';
 import { CharacterResponseDto } from './dto/character-response.dto';
+import { Delete, Param } from "@nestjs/common";
 
 @UseGuards(AuthGuard)
 @Controller("characters")
@@ -24,5 +25,12 @@ export class CharacterController {
         return characters.map(character => 
             plainToClass(CharacterResponseDto, character, { excludeExtraneousValues: true })
         );
+    }
+
+    @Delete(":id")
+    async deleteCharacter(@Param("id") characterId: string, @Req() req) {
+        const userId = req.userId;
+        await this.characterService.deleteCharacter(characterId, userId);
+        return { message: 'Personagem deletado com sucesso.' };
     }
 }

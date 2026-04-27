@@ -8,7 +8,13 @@ export class LobbyPlayerJoinResponseDto {
   id: string;
 
   @Expose()
+  isLeader: boolean;
+
+  @Expose()
   joined_at: Date;
+
+  @Expose()
+  left_at: Date;
 
   @Expose()
   @Type(() => CharacterResponseDto)
@@ -22,19 +28,7 @@ export class LobbyPlayerJoinResponseDto {
 // DTO para verificar lobby do usuário (endpoint check)
 export class UserLobbyDataResponseDto {
   @Expose()
-  lobbyId: string;
-
-  @Expose()
-  lobbyTitle: string;
-
-  @Expose()
-  isOwner: boolean;
-
-  @Expose()
-  characterId: string;
-
-  @Expose()
-  characterName: string;
+  myCharacterId: string;
 
   @Expose()
   @Type(() => LobbyResponseDto)

@@ -28,6 +28,9 @@ export class LobbyPlayerResponseDto {
   id: string;
 
   @Expose()
+  isLeader: boolean;
+
+  @Expose()
   joined_at: Date;
 
   @Expose()

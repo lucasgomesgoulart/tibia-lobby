@@ -3,6 +3,7 @@ import { AuthGuard } from "src/auth/auth.guard";
 import { LobbyPlayersService } from "./lobby-players.service";
 import { plainToClass } from 'class-transformer';
 import { LobbyPlayerJoinResponseDto, UserLobbyDataResponseDto } from './dto/lobby-player-response.dto';
+import { Put } from "@nestjs/common";
 
 @UseGuards(AuthGuard)
 @Controller("lobby-players")
@@ -35,5 +36,16 @@ export class LobbyPlayersController {
     }
     
     return plainToClass(UserLobbyDataResponseDto, lobbyData, { excludeExtraneousValues: true });
+  }
+
+  @Put("kick/:lobbyId/:characterId")
+  async kickPlayer(
+    @Param("lobbyId") lobbyId: string,
+    @Param("characterId") targetCharacterId: string,
+    @Req() req
+  ) {
+    const userId = req.userId;
+    await this.lobbyPlayersService.kickPlayer(lobbyId, targetCharacterId, userId);
+    return { message: "Jogador expulso com sucesso." };
   }
 }

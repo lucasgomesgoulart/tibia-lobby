@@ -34,6 +34,12 @@ export class LobbyGateway implements OnGatewayInit, OnGatewayConnection, OnGatew
     return { event: 'joinedLobbyRoom', data: lobbyId };
   }
 
+  @SubscribeMessage('joinLobbyList')
+  handleJoinLobbyList(@ConnectedSocket() client: Socket) {
+    client.join('lobbyList');
+    return { event: 'joinedLobbyList' };
+  }
+
 
   @SubscribeMessage('leaveLobbyRoom')
   handleLeaveLobbyRoom(
